@@ -3,7 +3,6 @@
 <head><meta charset="utf-8"></head>
 <body>
 <script>
-  // 專門幫 Google Sites 讀寫 LocalStorage 嘅「記憶庫」
   window.addEventListener('message', function(event) {
     let data = event.data;
     if (data.action === 'save') {
@@ -12,7 +11,6 @@
        let x = localStorage.getItem('ericMemoryX') || "";
        let y = localStorage.getItem('ericMemoryY') || "";
        let code = localStorage.getItem('ericPlayingCode') || "";
-       // 將讀到嘅記憶，傳返紙仔畀 Google Sites 主程式
        event.source.postMessage({ action: 'loadedAll', x: x, y: y, code: code }, event.origin);
     }
   });
