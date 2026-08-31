@@ -6,11 +6,6 @@
 </head>
 <body>
   <script>
-    // ★ 魔法喺呢度：一載入完就主動同主網頁講「我 Ready 喇」
-    window.onload = function() {
-        window.parent.postMessage({ action: 'ready' }, '*');
-    };
-
     window.addEventListener('message', function(event) {
       const data = event.data;
       if (!data || !data.action) return;
@@ -22,13 +17,14 @@
         localStorage.setItem('kmb_sim_index', data.index || 0);
       }
       else if (data.action === 'load') {
-        event.source.postMessage({
+        // ★ 改用 window.parent 強制回傳，穿透力 100%
+        window.parent.postMessage({
           action: 'loaded',
           route: localStorage.getItem('kmb_sim_route'),
           bound: localStorage.getItem('kmb_sim_bound'),
           type: localStorage.getItem('kmb_sim_type'),
           index: localStorage.getItem('kmb_sim_index')
-        }, event.origin);
+        }, '*');
       }
       else if (data.action === 'clear') {
         localStorage.removeItem('kmb_sim_route');
