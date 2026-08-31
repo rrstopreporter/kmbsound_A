@@ -6,32 +6,30 @@
 </head>
 <body>
   <script>
+    // ★ 魔法喺呢度：一載入完就主動同主網頁講「我 Ready 喇」
+    window.onload = function() {
+        window.parent.postMessage({ action: 'ready' }, '*');
+    };
+
     window.addEventListener('message', function(event) {
       const data = event.data;
       if (!data || !data.action) return;
 
-      // 收到 'save' 指令：抄低進度落 GitHub 網域嘅 localStorage
       if (data.action === 'save') {
         localStorage.setItem('kmb_sim_route', data.route || '');
         localStorage.setItem('kmb_sim_bound', data.bound || '');
         localStorage.setItem('kmb_sim_type', data.type || '');
         localStorage.setItem('kmb_sim_index', data.index || 0);
       }
-      // 收到 'load' 指令：讀取進度然後傳返畀主網頁
       else if (data.action === 'load') {
-        const route = localStorage.getItem('kmb_sim_route');
-        const bound = localStorage.getItem('kmb_sim_bound');
-        const type = localStorage.getItem('kmb_sim_type');
-        const index = localStorage.getItem('kmb_sim_index');
         event.source.postMessage({
           action: 'loaded',
-          route: route,
-          bound: bound,
-          type: type,
-          index: index
+          route: localStorage.getItem('kmb_sim_route'),
+          bound: localStorage.getItem('kmb_sim_bound'),
+          type: localStorage.getItem('kmb_sim_type'),
+          index: localStorage.getItem('kmb_sim_index')
         }, event.origin);
       }
-      // 收到 'clear' 指令：清空記錄 (熄機用)
       else if (data.action === 'clear') {
         localStorage.removeItem('kmb_sim_route');
         localStorage.removeItem('kmb_sim_bound');
