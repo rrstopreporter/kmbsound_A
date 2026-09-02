@@ -1,0 +1,728 @@
+/* =========================================
+       基本設定 (解鎖縮放限制，容許 Scroll)
+       ========================================= */
+    html, body { 
+      width: 100%; 
+      height: 100%; 
+      margin: 0; 
+      padding: 0; 
+    }
+    
+    * { 
+      box-sizing: border-box; 
+    }
+    
+    body {
+      background: transparent; 
+      font-family: "Helvetica Neue", Helvetica, Arial, "Noto Sans HK", "微軟正黑體", "Microsoft JhengHei", "新細明體", PMingLiU, sans-serif;
+      overflow: auto; 
+      display: flex; 
+      justify-content: center; 
+      align-items: flex-start; 
+      padding: 50px 0; 
+    }
+
+    /* =========================================
+       主容器 (配合 JS 手動縮放)
+       ========================================= */
+    .main-container {
+      width: 820px; 
+      height: 1050px; 
+      display: flex; 
+      flex-direction: column; 
+      align-items: center; 
+      transform-origin: top center; 
+      transition: transform 0.15s ease-out; 
+    }
+
+    /* =========================================
+       8字主屏幕 & 6字屏幕
+       ========================================= */
+    #ledCanvas {
+      padding: 4px; 
+      background-color: #000000; 
+      box-sizing: content-box; 
+      width: 510px; 
+      height: 64px; 
+      border: 12px solid #000000; 
+      border-radius: 6px;            
+      box-shadow: 0 5px 15px rgba(0,0,0,0.8); 
+      display: block; 
+      margin: 0 auto 5px auto; 
+      flex-shrink: 0;
+    }
+
+    .side-screen-wrapper {
+      box-sizing: content-box; 
+      width: 510px; 
+      height: 80px; 
+      border: 8px solid #A6A6A6; 
+      border-radius: 6px; 
+      background: #020202; 
+      box-shadow: 0 10px 20px rgba(0,0,0,0.8); 
+      display: flex; 
+      justify-content: center; 
+      align-items: center; 
+      margin: 0 auto 25px auto; 
+      overflow: hidden; 
+      flex-shrink: 0; 
+      padding: 2px;
+    }
+
+    #sideCanvas { 
+      width: 100%; 
+      height: 100%; 
+      display: block; 
+    }
+
+    .devices-row { 
+      display: flex; 
+      gap: -30px; 
+      justify-content: center; 
+      width: 100%; 
+      margin-bottom: 10px; 
+    }
+
+    /* =========================================
+       實體面板 (主機)
+       ========================================= */
+    .hard-panel {
+      width: 594px; 
+      height: 349px; 
+      background-color: #5c666f; 
+      position: relative; 
+      border-radius: 4px; 
+      box-shadow: inset 0 0 0 15px #1a1a1a, 0 15px 25px rgba(0,0,0,0.8); 
+      flex-shrink: 0; 
+      font-family: "新細明體", PMingLiU, sans-serif; 
+      transform: scale(0.9); 
+      transform-origin: top center;
+    }
+
+    .led-bulb { 
+      position: absolute; 
+      width: 10px; 
+      height: 10px; 
+      border-radius: 50%; 
+      background-color: #2b2b2b; 
+      border: 1px solid #111; 
+      box-shadow: inset 0 3px 5px rgba(0,0,0,0.9), 0 1px 1px rgba(255,255,255,0.15); 
+    }
+
+    .led-bulb.red.on { 
+      background-color: #ff2a2a; 
+      box-shadow: inset 0 1px 2px rgba(0,0,0,0.3), 0 0 8px 2px #ff2a2a; 
+    }
+
+    .led-bulb.green.on { 
+      background-color: #39ff14; 
+      box-shadow: inset 0 1px 2px rgba(0,0,0,0.3), 0 0 8px 2px #39ff14; 
+    }
+
+    .screen-bezel { 
+      position: absolute; 
+      width: 223px; 
+      height: 172px; 
+    }
+
+    .ddu-screen { 
+      width: 100%; 
+      height: 100%; 
+      background-color: #3A3838; 
+      color: transparent; 
+      padding: 5px; 
+      font-size: 20px; 
+      font-weight: bold; 
+      line-height: 1.2; 
+      overflow: hidden; 
+      position: relative; 
+      border: 5px solid #000; 
+      border-radius: 6px; 
+    }
+
+    .ddu-screen.on { 
+      background-color: #8cc63f; 
+      color: #111; 
+    }
+
+    .screen-line { 
+      white-space: nowrap; 
+      overflow: hidden; 
+      letter-spacing: 0px; 
+    }
+
+    .route-ui-container { 
+      display: flex; 
+      flex-direction: column; 
+      height: 100%; 
+      padding-top: 4px; 
+    }
+
+    .route-ui-title { 
+      font-size: 15px; 
+      margin-bottom: 2px; 
+    }
+
+    .route-ui-input { 
+      border: 2px solid #111; 
+      height: 25px; 
+      width: 200px; 
+      line-height: 23px; 
+      padding: 0 4px; 
+      margin-bottom: 5px; 
+      font-size: 18px; 
+      font-weight: bold; 
+      background: transparent; 
+    }
+
+    .route-ui-list { 
+      border: 2px solid #111; 
+      flex-grow: 1; 
+      display: flex; 
+      width: 200px; 
+      flex-direction: column; 
+      padding: 2px 4px; 
+      overflow: hidden; 
+    }
+
+    .route-ui-item { 
+      font-size: 16px; 
+      line-height: 1.1; 
+      font-weight: bold; 
+      border-radius: 2px; 
+    }   
+
+    .route-ui-fieldset { 
+      border: 2px solid #111; 
+      margin: 2px 0 0 0; 
+      padding: 4px; 
+      height: 98%; 
+      width: 98%; 
+      position: relative; 
+    }
+
+    .route-ui-legend { 
+      font-size: 20px; 
+      padding: 0 6px; 
+      margin-left: 1px; 
+    }
+
+    .route-ui-radio-item { 
+      font-size: 15px; 
+      line-height: 1.4; 
+      font-weight: bold; 
+      display: inline-flex; 
+      align-items: center; 
+      gap: 4px; 
+      width: fit-content; 
+    }
+
+    .radio-text { 
+      padding: 1px 2px; 
+      line-height: 1; 
+    }   
+
+    .route-ui-radio-item.selected .radio-text { 
+      outline: 1px dotted #111; 
+    }  
+
+    .radio-circle { 
+      font-size: 12px; 
+      margin-top: -2px; 
+      margin-left: 1px; 
+    }   
+
+    .power-switch-wrapper { 
+      position: absolute; 
+      width: 40px; 
+      height: 24px; 
+      background: #1a1a1a; 
+      border: 1px solid #050505; 
+      border-radius: 2px; 
+      padding: 3px; 
+      box-shadow: inset 0 1px 3px rgba(0,0,0,0.8), 0 1px 1px rgba(255,255,255,0.2); 
+      cursor: pointer; 
+    }
+
+    .rocker { 
+      width: 100%; 
+      height: 100%; 
+      background: #2a2a2a; 
+      border-radius: 1px; 
+      position: relative; 
+      display: flex; 
+      align-items: center; 
+      justify-content: space-between; 
+      padding: 0 4px; 
+      font-family: Arial, sans-serif; 
+      font-weight: bold; 
+      font-size: 11px; 
+      transition: all 0.1s ease-in-out; 
+      box-shadow: 0 0 2px rgba(0,0,0,0.8); 
+    }
+
+    .rocker::before { 
+      content: "－"; 
+      transform: scale(1.3, 0.9); 
+      margin-top: -2px; 
+    }
+
+    .rocker::after { 
+      content: "O"; 
+      font-size: 9px; 
+      margin-top: -1px; 
+    }
+
+    .power-switch-wrapper.off .rocker { 
+      background: linear-gradient(to right, #383838 40%, #0a0a0a 100%); 
+      border-right: 1px solid #000; 
+      border-left: 1px solid #555; 
+    }
+
+    .power-switch-wrapper.off .rocker::before { color: #fff; }
+    .power-switch-wrapper.off .rocker::after { color: #444; text-shadow: -1px 0 1px #000; }
+
+    .power-switch-wrapper.on .rocker { 
+      background: linear-gradient(to left, #383838 40%, #0a0a0a 100%); 
+      border-left: 1px solid #000; 
+      border-right: 1px solid #555; 
+    }
+
+    .power-switch-wrapper.on .rocker::before { color: #444; text-shadow: 1px 0 1px #000; }
+    .power-switch-wrapper.on .rocker::after { color: #fff; }
+
+    .usb-port { 
+      position: absolute; 
+      width: 40px; 
+      height: 16px; 
+      background: #000; 
+      border: 2px solid #aaa; 
+      border-radius: 2px; 
+      box-shadow: inset 0 2px 4px rgba(0,0,0,0.9), 0 1px 1px rgba(255,255,255,0.1); 
+      display: flex; 
+      justify-content: center; 
+      align-items: flex-end; 
+      padding-bottom: 2px; 
+    }
+
+    .usb-tongue { 
+      width: 28px; 
+      height: 5px; 
+      background: #e0e0e0; 
+      display: flex; 
+      justify-content: space-evenly; 
+      align-items: center; 
+      border-radius: 1px; 
+    }
+
+    .usb-pin { 
+      width: 3px; 
+      height: 4px; 
+      background: #d4af37; 
+    }
+
+    .reset-hole { 
+      position: absolute; 
+      width: 5px; 
+      height: 5px; 
+      background: #000; 
+      border-radius: 50%; 
+      box-shadow: inset 0 2px 3px rgba(0,0,0,0.9), 0 1px 0 rgba(255,255,255,0.2); 
+    }
+
+    .btn { 
+      position: absolute; 
+      border-radius: 3px; 
+      cursor: pointer; 
+      font-family: Arial, sans-serif; 
+      display: block; 
+      text-align: center; 
+      opacity: 1; 
+      border: 1px solid #222; 
+      box-shadow: 0 2px 2px rgba(0,0,0,0.5); 
+    }
+
+    .btn:active { 
+      transform: translate(1px, 1px); 
+      box-shadow: 0 1px 1px rgba(0,0,0,0.5); 
+    }
+
+    .bg-red { background-color: #E6080C; color: #111; }
+    .bg-green { background-color: #40d040; color: #111; }
+    .bg-orange { background-color: #ff7538; color: #111; }
+    .bg-blue { background-color: #0073e6; color: #fff; }
+    .bg-blank { background-color: #ff7538; cursor: default; }
+
+    .btn-f { 
+      width: 38px; 
+      height: 35px; 
+      font-size: 21px; 
+      font-weight: bold; 
+    }
+
+    .btn-num { 
+      width: 48px; 
+      height: 36px; 
+      font-size: 13px; 
+      font-weight: bold; 
+      padding-top: -2px; 
+      margin-top: -2px; 
+    }
+
+    .btn-num span { 
+      display: block; 
+      font-size: 10px; 
+      font-weight: normal; 
+      margin-top: 0px; 
+    }
+
+    .btn-arrow { 
+      width: 48px; 
+      height: 36px; 
+      font-size: 24px; 
+      line-height: 32px; 
+      font-weight: bold; 
+    }
+
+    /* =========================================
+       遙控器 (主外殼)
+       ========================================= */
+    .karen-remote { 
+      width: 98px; 
+      background: linear-gradient(180deg, #181818 0%, #0a0a0a 100%); 
+      border: 3px solid #2a2a2a; 
+      border-radius: 7px; 
+      box-shadow: 0 7px 21px rgba(0,0,0,0.9), inset 0 1px 0 rgba(255,255,255,0.05); 
+      display: flex; 
+      flex-direction: column; 
+      align-items: center; 
+      padding: 0; 
+      flex-shrink: 0; 
+      font-family: "新細明體", sans-serif; 
+    } 
+
+    .remote-hood { 
+      width: 100%; 
+      height: 130px; 
+      background: #111111; 
+      border-bottom: 2px solid #000; 
+      padding-top: 10px; 
+      border-radius: 5px 5px 0 0; 
+      display: flex; 
+      justify-content: center; 
+    }
+
+    .remote-screen { 
+      background-color: #050505; 
+      border: 1.5px solid #222; 
+      border-radius: 3px; 
+      width: 78px; 
+      height: 110px; 
+      padding: 0; 
+      display: flex; 
+      flex-direction: column; 
+      overflow: hidden; 
+      position: relative; 
+    }
+
+    canvas#remoteCanvas { 
+      background-color: #050500; 
+      display: block; 
+      width: 100%; 
+      height: 100%; 
+    }
+
+    .remote-body-panel { 
+      width: 100px; 
+      height: auto; 
+      min-height: 180px; 
+      background: #232220; 
+      border-left: 4px solid #dcdcdc; 
+      border-right: 4px solid #dcdcdc; 
+      border-bottom: 4px solid #dcdcdc; 
+      border-top: 1px solid #222; 
+      border-radius: 10px; 
+      margin-top: 0px; 
+      padding: 15px 4px 15px 4px; 
+      display: flex; 
+      flex-direction: column; 
+      align-items: center; 
+      box-shadow: inset 0 0 4px rgba(0,0,0,0.8); 
+    }
+
+    .remote-btn { 
+      background: linear-gradient(180deg, #f0f0f0 0%, #c8c8c8 100%); 
+      border: 1px solid #555; 
+      cursor: pointer; 
+      user-select: none; 
+      box-shadow: 0 2px 2px rgba(0,0,0,0.6); 
+      transition: transform 0.08s; 
+      display: flex; 
+      align-items: center; 
+      justify-content: center; 
+      padding: 0; 
+      margin: 0; 
+    }
+
+    .remote-btn:active { 
+      transform: translateY(1px); 
+      box-shadow: 0 1px 1px rgba(0,0,0,0.8); 
+    }
+
+    .remote-btn-wrapper { 
+      display: flex; 
+      flex-direction: column; 
+      align-items: center; 
+      gap: 2px; 
+      margin-bottom: -5px; 
+    }
+
+    .remote-btn-label { 
+      font-size: 8px; 
+      color: #e0e0e0; 
+      text-align: center; 
+      line-height: -7; 
+      letter-spacing: 0.2px; 
+      white-space: nowrap; 
+    }
+
+    .remote-row-1 { 
+      display: flex; 
+      align-items: flex-start; 
+      justify-content: center; 
+      gap: 3px; 
+      width: 100%; 
+      margin-bottom: 0px; 
+      margin-top: 20px; 
+    }
+
+    .remote-btn-oval { 
+      width: 15px; 
+      height: 28px; 
+      border-radius: 50%; 
+      flex-direction: column; 
+      overflow: hidden; 
+      gap: 0; 
+    }
+
+    .remote-btn-oval div { 
+      flex: 1; 
+      width: 100%; 
+      cursor: pointer; 
+    }
+
+    .remote-btn-round { 
+      width: 20px; 
+      height: 20px; 
+      border-radius: 50%; 
+    }
+
+    .remote-btn-center-top { 
+      width: 20px; 
+      height: 20px; 
+      border-radius: 50%; 
+      margin-top: 1px; 
+    }
+
+    .remote-btn-big { 
+      width: 27px; 
+      height: 27px; 
+      border-radius: 50%; 
+    }
+
+    .red-arrow { 
+      color: #d32f2f; 
+      font-size: 14px; 
+      font-family: "Arial Black", Arial, sans-serif; 
+      font-weight: 2000; 
+      line-height: 1; 
+      margin-top: -1px; 
+      transform: scaleX(1.1); 
+    }
+
+    .remote-grid { 
+      display: grid; 
+      grid-template-columns: repeat(3, 20px); 
+      justify-content: center; 
+      row-gap: 0px; 
+      column-gap: 4px; 
+      align-items: end; 
+      width: 100%; 
+      margin-top: -7px; 
+    }
+
+    .remote-grid-label { 
+      font-size: 7px; 
+      color: #e0e0e0; 
+      text-align: center; 
+      line-height: 1; 
+      letter-spacing: 0.2px; 
+      white-space: nowrap; 
+      margin-bottom: 0; 
+    }
+
+    .remote-brand { 
+      font-size: 8px; 
+      color: #999; 
+      text-align: center; 
+      margin-top: -10px; 
+      line-height: 1.1; 
+      font-family: sans-serif; 
+      letter-spacing: -0.2px; 
+    }
+
+    .remote-brand-bottom { 
+      font-size: 6px; 
+      color: #666;  
+      margin-top: 15px; 
+      margin-bottom: 1px; 
+    }
+
+    /* =========================================
+       ★ 全新 PIDS 乘客資訊顯示系統 
+       ========================================= */
+    .pids-wrapper {
+      width: 800px;  /* ★ 還原內部黃金比例 */
+      height: 450px; 
+      background: #f4f6f7; 
+      border: 15px solid #111; 
+      border-radius: 12px;
+      box-shadow: inset 0 0 10px rgba(0,0,0,0.8), 0 15px 30px rgba(0,0,0,0.7);
+      display: none; 
+      flex-direction: column; 
+      overflow: hidden; 
+      position: relative;
+      flex-shrink: 0; 
+    }
+
+    /* 頂部 14% (24吋) */
+    .pids-top-row { 
+      flex: 0 0 14%; 
+      display: flex; 
+      background: black; 
+      color: white; 
+      border-bottom: 2px solid #111; 
+      width: 100%; 
+    }
+
+    .pids-top-left { 
+      background: yellow; 
+      color: black; 
+      display: flex; 
+      flex-direction: column; 
+      justify-content: center; 
+      align-items: center; 
+      padding: 2px 5px; 
+      border-right: 2px solid #111; 
+    }
+
+    .pids-top-right { 
+      display: flex; 
+      justify-content: center; 
+      align-items: center; 
+      overflow: hidden; 
+      color: #fff; 
+    }
+
+    /* 中間 路線圖 (24吋) */
+    .pids-mid-row { 
+      flex-grow: 1; 
+      background: #f4f6f7; 
+      border-bottom: 10px solid #111; 
+      overflow: hidden; 
+      position: relative; 
+      display: flex; 
+      width: 100%; 
+    }
+    
+    .pids-mid-left, .pids-mid-center, .pids-mid-right { 
+      flex: 0 0 33.333%; 
+      max-width: 33.333%; 
+      display: flex; 
+      flex-direction: column; 
+      justify-content: flex-start; 
+      align-items: center; 
+      padding: 18px 5px 0 5px; 
+      overflow: hidden; 
+      position: relative; 
+      z-index: 1; 
+    }
+
+    /* 底部現站 (24吋) */
+    .pids-lower-row { 
+      flex: 0 0 25%; 
+      background: #fff; 
+      display: flex; 
+      flex-direction: column; 
+      justify-content: center; 
+      align-items: center; 
+      overflow: hidden; 
+      padding: 0 10px; 
+      color: #111; 
+    }
+
+    /* 最底欄 (黑底、收窄) */
+    .pids-footer { 
+      flex: 0 0 20px; 
+      height: 20px; 
+      background: #111; 
+      color: white; 
+      display: flex; 
+      align-items: center; 
+      justify-content: center; 
+      font-size: 12px; 
+      font-weight: bold; 
+      letter-spacing: 1px; 
+      flex-shrink: 0;
+    }
+
+    .auto-box { width: 100%; display: flex; justify-content: center; align-items: center; overflow: visible; }
+    .auto-box-left { width: 100%; display: flex; justify-content: flex-start; align-items: center; overflow: visible; }
+    
+    /* ★ 改為 scale() 等比例縮放，避免字體壓扁變形 */
+    .auto-text { display: inline-block; white-space: nowrap; transform-origin: center center; }
+    .auto-text-left { display: inline-block; white-space: nowrap; transform-origin: left center; }
+
+    .pids-en-bold { font-weight: 900 !important; }
+
+    /* 路線圖圖形 CSS (24吋) */
+    .route-graphics { position: relative; width: 100%; height: 36px; margin-top: 5px; display: flex; justify-content: center; align-items: center; }
+    .route-line { position: absolute; top: 50%; height: 14px; background: #FF1E27; transform: translateY(-50%); z-index: 1; }
+    .dot-current-static { position: relative; z-index: 2; width: 16px; height: 16px; border-radius: 50%; border: 2px solid #FF1E27; background-color: #EFF10F; box-shadow: 0 0 0 2px #fff; display: block; }
+    .dot-next { position: relative; z-index: 2; width: 14px; height: 14px; min-width: 12px; border-radius: 50%; background-color: #ffffff !important; border: none; box-shadow: 0 0 1px rgba(0,0,0,0.1); display: block; }
+    .dot-passed { position: relative; z-index: 2; width: 14px; height: 14px; min-width: 12px; border-radius: 50%; background-color: #ffffff; border: none solid #999; box-sizing: border-box; display: block; }
+    .dot-current { position: relative; z-index: 2; width: 16px; height: 16px; min-width: 16px; border-radius: 50%; border: 2px solid #FF1E27; background-color: #EFF10F; box-shadow: 0 0 0 2px #fff; animation: flashDot 1.5s infinite; box-sizing: border-box; display: block; }
+    .terminus-group { position: absolute; display: flex; gap: 3px; z-index: 1; align-items: center; }
+    .term-box-1 { width: 5px; height: 14px; border: 1px solid #FF1E27; background: transparent; box-sizing: border-box; }
+    .term-box-2 { width: 9px; height: 14px; border: 1px solid #FF1E27; background: transparent; box-sizing: border-box; }
+    .term-box-3 { width: 14px; height: 14px; border: 1px solid #FF1E27; background: transparent; box-sizing: border-box; }
+
+    @keyframes flashDot { 0%, 49% { background-color: #f1c40f; } 50%, 100% { background-color: #ffffff; } }
+    @keyframes arrSeq1 { 0%, 24.9% { opacity: 0; } 25%, 100% { opacity: 1; } }
+    @keyframes arrSeq2 { 0%, 49.9% { opacity: 0; } 50%, 100% { opacity: 1; } }
+    @keyframes arrSeq3 { 0%, 74.9% { opacity: 0; } 75%, 100% { opacity: 1; } }
+    
+    .pids-arrows { position: absolute; left: 20%; top: 50%; transform: translate(-50%, -48%); z-index: 3; display: flex; gap: 3px; }
+    .arr1 { animation: arrSeq1 2s infinite; }
+    .arr2 { animation: arrSeq2 2s infinite; }
+    .arr3 { animation: arrSeq3 2s infinite; }
+
+    /* =========================================
+       ★ 17 吋 PIDS 專屬圓點樣式
+       ========================================= */
+    .dot-current-17 {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background-color: #EFF10F;      /* 黃色心 */
+        border: 2px solid #FF1E27;      /* 紅圈 */
+        box-shadow: 0 0 0 4px #FFFFFF;  /* 再白圈 */
+        box-sizing: content-box;
+    }
+    .dot-next-17 {
+        width: 36px; 
+        height: 36px; 
+        border-radius: 50%;
+        background-color: #FFFFFF;
+        box-sizing: border-box;
+    }
