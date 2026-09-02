@@ -173,7 +173,7 @@
                     <div style="width: 14%; height: 100%; background: #FF1E27; display: flex; align-items: center; justify-content: center; border-right: 2px solid #ddd; border-bottom: 3px solid #fff; box-sizing: border-box;">
                         ${dot2Html}
                     </div>
-                    <div style="width: 86%; height: 100%; background: #fff; position: relative; overflow: hidden; box-sizing: border-box; border-bottom: 2px solid #e0e0e0;">
+                    <div style="width: 86%; height: 100%; background: #fff; position: relative; overflow: hidden; box-sizing: border-box; border-bottom: 2px solid #fff;">
                        ${stop2 ? `
                        <!-- ★ 絕對定位鎖死喺 top: 5px -->
                        <div style="position: absolute; top: 0px; z-index: 10;">
