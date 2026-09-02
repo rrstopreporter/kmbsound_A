@@ -14,7 +14,7 @@
             pids.style.height = "387px";
             pids.style.border = "15px solid #111"; 
             pids.style.borderRadius = "16px";
-            scaleWrapper.style.transform = "scale(0.565)"; 
+            scaleWrapper.style.transform = "scale(0.7)"; 
             if (outerContainer) outerContainer.style.height = "250px"; 
             if (sticker) { sticker.style.left = "220px"; sticker.style.bottom = "-20px"; }
         } else {
