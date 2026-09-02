@@ -1,4 +1,4 @@
-    /* =========================================
+/* =========================================
        ★ 手動拉 Bar 縮放引擎
        ========================================= */
     function manualZoom(value) {
@@ -86,9 +86,21 @@
     let passwordInput = ""; 
     let f2MenuIndex = 0; 
     
-    let pidsMode = '24'; // ★ PIDS 模式預設 24 吋
+    let pidsMode = '24'; 
+    let isRestoringMemory = false;
 
     const f2MenuItems = ["COPY", "本機屬性", "網絡配置", "進階設定", "站點採樣", "數據上傳", "下載本字庫", "更新驅動", "精度設定", "版本序列號"];
+
+    // ★ F2 工程模式專用變數
+    let f2SubMenuIndex = 0; 
+    let f2SubMenuList = []; 
+    let f2SubMenuTitle = ""; 
+    let settingBrightness = 3; 
+    let settingVolume = 3; 
+    let settingAccuracy = 5; 
+    let f2ReturnMode = "F2_MENU"; 
+    let f2LoadingText = ""; 
+    let f2LoadingTimer = null; 
 
     const bootImg1 = new Image(); bootImg1.crossOrigin = "anonymous"; bootImg1.src = "https://rrstopreporter.github.io/kmbsound_A/start1.png";
     const bootImg2 = new Image(); bootImg2.crossOrigin = "anonymous"; bootImg2.src = "https://rrstopreporter.github.io/kmbsound_A/start2.png";
@@ -206,7 +218,7 @@
       const blockedKeys = ['F1', 'F2', 'F3', 'F4']; 
       if (blockedKeys.includes(event.key)) event.preventDefault();
       
-      if (!isPowerOn || currentMode.startsWith("BOOTING")) return;
+      if (!isPowerOn || currentMode.startsWith("BOOTING") || isRestoringMemory) return;
       
       const isRemoteStop = event.code === 'Numpad3'; 
       const isPanelDown = event.key === 'ArrowDown'; 
@@ -269,7 +281,7 @@
     });
     
     async function pressRemoteRefresh() { 
-      if (!isPowerOn || isLoading || currentMode.startsWith("BOOTING")) return; 
+      if (!isPowerOn || isLoading || currentMode.startsWith("BOOTING") || currentMode === "F2_LOADING") return; 
       if (currentMode === "RUNNING" && isActivelyAnnouncing) return; 
       isLoading = true; updateScreens(); 
       await fetchExcelFromDrive(); 
@@ -355,7 +367,6 @@
             `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}` 
           ];
           
-          // ★ 最多自動重試 3 次，徹底解決偶爾讀唔到數據嘅問題
           for (let attempt = 1; attempt <= 3; attempt++) {
               for (let url of proxyList) {
                 try {
@@ -414,7 +425,7 @@
       })();
       
       const result = await excelFetchPromise;
-      if (!result) excelFetchPromise = null; // 如果失敗就允許再試
+      if (!result) excelFetchPromise = null; 
       return result;
     }
 
@@ -651,7 +662,7 @@
             drawDirectLedGrid(mx8, mx6, 0, 0); 
             setTimeout(() => {
                 if (isPowerOn && (token === undefined || token === currentSequenceToken)) {
-                    if (pidsMode === '17') renderPids17Inch(pageObj.t8, isEng8);
+                    if (pidsMode === '19') renderPids19Inch(pageObj.t8, isEng8);
                     else renderPidsLowerArea(pageObj.t8, isEng8);
                 }
             }, 100);
@@ -672,7 +683,7 @@
             currentText8 = processText8; currentText6 = processText6; currentIsEng8 = isEng8; currentIsEng6 = isEng6; 
             setTimeout(() => {
                 if (isPowerOn && (token === undefined || token === currentSequenceToken)) {
-                    if (pidsMode === '17') renderPids17Inch(pageObj.t8, isEng8);
+                    if (pidsMode === '19') renderPids19Inch(pageObj.t8, isEng8);
                     else renderPidsLowerArea(pageObj.t8, isEng8);
                 }
             }, 150);
@@ -794,12 +805,6 @@
       });
     }
 
-    function drawRemoteImage(imgObj) {
-        setupHDCanvas(); remoteCtx.fillStyle = "#050500"; remoteCtx.fillRect(0, 0, remoteCanvas.width, remoteCanvas.height);
-        if (imgObj.complete && imgObj.naturalWidth > 0) { remoteCtx.drawImage(imgObj, 0, 0, remoteCanvas.width, remoteCanvas.height); } 
-        else { imgObj.onload = () => { remoteCtx.drawImage(imgObj, 0, 0, remoteCanvas.width, remoteCanvas.height); }; }
-    }
-
     /* =========================================
        UI 與輸入狀態更新
        ========================================= */
@@ -823,7 +828,7 @@
     }
     
     function adjustAttenCode(delta) { 
-      if (!isPowerOn || isLoading) return; 
+      if (!isPowerOn || isLoading || currentMode === "F2_LOADING") return; 
       if (currentMode === "RUNNING" && isActivelyAnnouncing) return; 
       let tens = Math.floor(attenCodeNum / 10); let units = attenCodeNum % 10; 
       if (Math.abs(delta) === 10) { tens = (tens + (delta > 0 ? 1 : -1) + 10) % 10; } 
@@ -875,6 +880,19 @@
     /* =========================================
        主畫面更新邏輯 (UI 介面)
        ========================================= */
+    function triggerF2Loading(text, returnMode) {
+        currentMode = "F2_LOADING";
+        f2LoadingText = text;
+        f2ReturnMode = returnMode;
+        updateScreens();
+        if (f2LoadingTimer) clearTimeout(f2LoadingTimer);
+        f2LoadingTimer = setTimeout(() => {
+            if (!isPowerOn) return; 
+            currentMode = f2ReturnMode;
+            updateScreens();
+        }, 2000); 
+    }
+
     function updateScreens() {
       try {
           const screen = document.getElementById("dduScreen"); 
@@ -940,7 +958,7 @@
             const destText = activeRouteObj ? activeRouteObj.dest : "";
             const typeText = activeRouteObj ? activeRouteObj.type : "";
 
-            content.innerHTML = `<div class="screen-line">路線: ${currentRouteKey}</div><div class="screen-line">開往: ${destText}</div><div class="screen-line">屬性: ${typeText}</div><div class="screen-line">下一站:　　${formatStopNum(currentIndex)}</div><div class="screen-line stop-name">${cleanName}</div>`; 
+            content.innerHTML = `<div class="screen-line">路線: ${currentRouteKey}</div><div class="screen-line">開往: ${destText}</div><div class="screen-line">屬性: ${typeText}</div><div class="screen-line">下一站:  ${formatStopNum(currentIndex)}</div><div class="screen-line stop-name">${cleanName}</div>`; 
             drawRemoteScreen(getRemoteLinesData());
           } else if (currentMode === "F2_PASSWORD") {
             const displayPwd = "●".repeat(passwordInput.length);
@@ -954,6 +972,71 @@
             }
             content.innerHTML = `<fieldset class="route-ui-fieldset" style="margin: 0; padding: 2px 4px; height: 100%;"><legend class="route-ui-legend" style="font-size: 20px; font-weight: bold; margin-left: 2px; padding: 2px 4px;">功能</legend><div style="display: grid; grid-template-columns: 80px 1fr; grid-template-rows: repeat(5, 1fr); grid-auto-flow: column; row-gap: 3px; column-gap: 4px; padding: 6px 0 0 4px;">${f2MenuHtml}</div></fieldset>`; 
             drawRemoteScreen([{ text: "" }, { text: "功能選單", align: "center" }]);
+          
+          // ==============================
+          // ★ F2 子選單層級與設定介面 ★
+          // ==============================
+          } else if (currentMode.startsWith("F2_MENU_")) {
+              let html = ''; 
+              for (let i = 0; i < f2SubMenuList.length; i++) { 
+                  const isSel = (i === f2SubMenuIndex); const circle = isSel ? '◉' : '○'; 
+                  html += `<div style="font-size: 16px; color: #111; display: flex; align-items: center; gap: 2px; row-gap: 6px; white-space: nowrap;"><span style="font-size: 9px; margin-top: -1px;">${circle}</span> ${f2SubMenuList[i]}</div>`; 
+              }
+              content.innerHTML = `<fieldset class="route-ui-fieldset" style="margin: 0; padding: 2px 4px; height: 100%;"><legend class="route-ui-legend" style="font-size: 20px; font-weight: bold; margin-left: 2px; padding: 2px 4px;">${f2SubMenuTitle}</legend><div style="display: flex; flex-direction: column; gap: 4px; padding: 6px 0 0 4px;">${html}</div></fieldset>`;
+              drawRemoteScreen([{ text: "" }, { text: f2SubMenuTitle, align: "center" }]);
+              
+          } else if (currentMode === "F2_LOADING") {
+              content.innerHTML = `
+                <style>@keyframes f2Slide { 0% { left: -40%; } 100% { left: 100%; } }</style>
+                <div style="width: 100%; height: 100%; background: #999; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 5px;">
+                    <div style="width: 90%; background: #fff; border: 2px solid #000; padding: 6px; display: flex; flex-direction: column;">
+                        <div style="font-size: 15px; font-weight: bold; color: #000; line-height: 1.2;">${f2LoadingText}</div>
+                        <div style="width: 100%; height: 10px; border: 1px solid #666; background: #ddd; margin-top: 10px; overflow: hidden; position: relative;">
+                            <div style="width: 40%; height: 100%; background: #0000ff; position: absolute; animation: f2Slide 1.5s infinite linear;"></div>
+                        </div>
+                    </div>
+                </div>`;
+              drawRemoteScreen([{ text: "" }, { text: "處理中...", align: "center", bgColor: "#0000ff", textColor: "#fff" }]);
+              
+          } else if (currentMode === "F2_SETTING_BRIGHT") {
+              content.innerHTML = `
+                <div style="width: 100%; height: 100%; display: flex; flex-direction: column; padding: 4px;">
+                   <div style="font-size: 18px; font-weight: bold; text-align: center; border-bottom: 2px solid #111; padding-bottom: 2px; margin-bottom: 15px;">顯示屏亮度設置</div>
+                   <div style="font-size: 16px; margin-left: 10px; font-weight: bold;">顯示屏亮度: ${settingBrightness}</div>
+                </div>`;
+              drawRemoteScreen([{ text: "" }, { text: "亮度設置", align: "center" }]);
+              
+          } else if (currentMode === "F2_SETTING_VOL") {
+              let blocks = '';
+              for(let i=1; i<=8; i++) {
+                  let active = i <= settingVolume ? '#111' : 'transparent';
+                  blocks += `<div style="flex:1; height: 14px; border: 1px solid #111; background: ${active}; margin: 0 1px;"></div>`;
+              }
+              content.innerHTML = `
+                <div style="width: 100%; height: 100%; display: flex; flex-direction: column; padding: 4px;">
+                   <div style="font-size: 18px; font-weight: bold; text-align: center; border-bottom: 2px solid #111; padding-bottom: 2px; margin-bottom: 10px;">系統音量設置</div>
+                   <div style="font-size: 16px; margin-left: 10px; font-weight: bold;">當前音量: ${settingVolume}</div>
+                   <div style="display: flex; width: 100%; padding: 0 10px; margin-top: 20px;">${blocks}</div>
+                </div>`;
+              drawRemoteScreen([{ text: "" }, { text: "音量設置", align: "center" }]);
+              
+          } else if (currentMode === "F2_SETTING_ACCURACY") {
+              let blocksAcc = '';
+              for(let i=0; i<=5; i++) {
+                  let active = i <= settingAccuracy ? '#111' : 'transparent';
+                  blocksAcc += `<div style="flex:1; height: 14px; border: 1px solid #111; background: ${active}; margin: 0 1px;"></div>`;
+              }
+              content.innerHTML = `
+                <div style="width: 100%; height: 100%; display: flex; flex-direction: column; padding: 4px;">
+                   <div style="font-size: 18px; font-weight: bold; text-align: center; border-bottom: 2px solid #111; padding-bottom: 2px; margin-bottom: 10px;">系統精度設定</div>
+                   <div style="font-size: 16px; margin-left: 10px; font-weight: bold;">當前精度: ${settingAccuracy}</div>
+                   <div style="display: flex; width: 100%; padding: 0 10px; margin-top: 20px;">${blocksAcc}</div>
+                </div>`;
+              drawRemoteScreen([{ text: "" }, { text: "精度設定", align: "center" }]);
+              
+          } else if (currentMode === "F2_BLANK") {
+              content.innerHTML = `<div style="width: 100%; height: 100%;"></div>`;
+              drawRemoteScreen([{ text: "" }]);
           }
           
           const lockTargetBtns = document.querySelectorAll('.btn, .remote-btn');
@@ -1139,7 +1222,7 @@
        按鈕操作邏輯
        ========================================= */
     async function pressPassengerAtten() {
-      if (!isPowerOn || isLoading || currentMode.startsWith("BOOTING")) return; 
+      if (!isPowerOn || isLoading || currentMode === "F2_LOADING" || currentMode.startsWith("BOOTING")) return; 
       if (currentMode === "RUNNING" && isActivelyAnnouncing) return; 
       
       const attStr = formatAttenNum(attenCodeNum); const attenObj = getStopsAudioData(`ATTEN10${attStr}0`); 
@@ -1180,7 +1263,6 @@
         const mx8_blank = renderTextTo16x128Matrix("        ", false); const mx6_loading = renderTextTo16x128Matrix("Loading", false); 
         drawDirectLedGrid(mx8_blank, mx6_loading, 0, 0); currentText6 = "Loading";
         
-        // ★ 確保 Excel 數據完全加載完畢，未載好前不跳出開機畫面
         if (routeKeysList.length === 0) { 
             isLoading = true; 
             await fetchExcelFromDrive(); 
@@ -1202,22 +1284,18 @@
         
         searchInput = ""; currentKeyDigit = null; lastSearchQuery = ""; 
 
-        // ★ 1. 開機動畫播完，強制入 STANDBY 畫面
         currentMode = "STANDBY"; 
         updateScreens();
         
-        // ★ 加返開機 BEEP 聲 + 啟動長聲
         sectBeepAudio.currentTime = 0;
         sectBeepAudio.play().catch(e => console.warn(e));
         
         bootAudio.currentTime = 0;
         bootAudio.play().catch(e => console.warn("Boot audio play failed:", e));
         
-        // ★ 2. 停頓 3 秒鐘 (畫面停留 3 秒)
         await new Promise(resolve => setTimeout(resolve, 3000));
         if (!isPowerOn || currentSequenceToken !== myToken) return; 
         
-        // ★ 3. 三秒後檢查有無 Save Record，有就自動還原進度
         if (pendingSavedState && pendingSavedState.route) {
             currentRouteKey = pendingSavedState.route;
             currentBoundKey = pendingSavedState.bound || "";
@@ -1242,39 +1320,45 @@
                 menuMode = "NONE";
             }
             
-            // ★ 1. 有記憶：先解鎖，後更新畫面！
             isRestoringMemory = false; 
             updateScreens(); 
             startPidsTimers(); 
             resumeDisplayLoopNoAudio();
         } else {
-            // ★ 2. 無記憶 (初次開機)：都要解鎖兼更新畫面！
             isRestoringMemory = false;
             updateScreens();
         }
 
       } else { 
-        isRestoringMemory = false; // ★ 3. 啪掣熄機：立刻解鎖！
+        isRestoringMemory = false; 
         currentMode = "STANDBY"; 
         updateScreens(); 
       }
     }
 
     function pressF1() { 
-      if (!isPowerOn || isLoading || currentMode.startsWith("BOOTING")) return; 
+      if (!isPowerOn || isLoading || currentMode === "F2_LOADING" || currentMode.startsWith("BOOTING")) return; 
       stopPidsTimers(); currentMode = "SELECT_ROUTE"; searchInput = ""; currentKeyDigit = null; lastSearchQuery = ""; 
       selectedRouteIndex = 0; attenCodeNum = 0; lastBeepedIndex = -1; isNoMatch = false; showRouteNotFound = false; listNavigated = false; 
       updateFilteredRoutes(); updateScreens(); 
     }
     
     function pressF2() { 
-        if (!isPowerOn || isLoading || currentMode.startsWith("BOOTING")) return; 
+        if (!isPowerOn || isLoading || currentMode === "F2_LOADING" || currentMode.startsWith("BOOTING")) return; 
         if (currentMode === "RUNNING" && isActivelyAnnouncing) return; 
         stopPidsTimers(); currentMode = "F2_PASSWORD"; passwordInput = ""; f2MenuIndex = 0; updateScreens(); 
     }
     
     function pressF4() {
       if (!isPowerOn || isLoading || currentMode.startsWith("BOOTING")) return; 
+      
+      // ★ 處理 F2 介面嘅返回邏輯
+      if (currentMode === "F2_LOADING") return; // Loading 時封鎖 F4
+      if (currentMode === "F2_SETTING_BRIGHT" || currentMode === "F2_SETTING_VOL") { currentMode = "F2_MENU_ATTR"; updateScreens(); return; }
+      if (currentMode === "F2_MENU_ATTR" || currentMode === "F2_MENU_ADV" || currentMode === "F2_SETTING_ACCURACY" || currentMode === "F2_MENU_VER") { currentMode = "F2_MENU"; updateScreens(); return; }
+      if (currentMode === "F2_MENU_ADV_REMOTE" || currentMode === "F2_MENU_ADV_DISP") { currentMode = "F2_MENU_ADV"; updateScreens(); return; }
+      if (currentMode === "F2_BLANK") { currentMode = f2ReturnMode; updateScreens(); return; }
+      
       if (menuMode !== "NONE") { menuMode = "NONE"; updateScreens(); return; }
       if (currentMode === "F2_PASSWORD" || currentMode === "F2_MENU") { 
           if (activeRouteObj) { currentMode = "RUNNING"; startPidsTimers(); } else { currentMode = "STANDBY"; }
@@ -1288,7 +1372,7 @@
     }
 
     function pressMultiTap(digit) { 
-      if (!isPowerOn || isLoading || currentMode.startsWith("BOOTING")) return; 
+      if (!isPowerOn || isLoading || currentMode === "F2_LOADING" || currentMode.startsWith("BOOTING")) return; 
       if (currentMode === "F2_PASSWORD") { if (passwordInput.length < 10) passwordInput += digit; updateScreens(); return; }
       if (currentMode !== "SELECT_ROUTE") return; 
       
@@ -1305,7 +1389,7 @@
     }
 
     function pressClear() { 
-      if (!isPowerOn || isLoading || currentMode.startsWith("BOOTING")) return; 
+      if (!isPowerOn || isLoading || currentMode === "F2_LOADING" || currentMode.startsWith("BOOTING")) return; 
       if (currentMode === "RUNNING") return; 
       
       if (currentMode === "F2_PASSWORD") { if (passwordInput.length > 0) { passwordInput = passwordInput.slice(0, -1); updateScreens(); } return; }
@@ -1323,7 +1407,7 @@
     }
     
     function pressArrow(dir) {
-      if (!isPowerOn || isLoading || currentMode.startsWith("BOOTING")) return; 
+      if (!isPowerOn || isLoading || currentMode === "F2_LOADING" || currentMode.startsWith("BOOTING")) return; 
       if (currentMode === "RUNNING" && isActivelyAnnouncing) return; 
       
       if (currentMode === "SELECT_ROUTE") { 
@@ -1341,15 +1425,38 @@
           f2MenuIndex += dir; if (f2MenuIndex < 0) f2MenuIndex = 0; else if (f2MenuIndex >= f2MenuItems.length) f2MenuIndex = f2MenuItems.length - 1; 
           updateScreens(); 
       }
+      // ★ 處理 F2 子選單及設定值增減
+      else if (currentMode.startsWith("F2_MENU_")) { 
+          f2SubMenuIndex += dir; 
+          if (f2SubMenuIndex < 0) f2SubMenuIndex = 0; 
+          else if (f2SubMenuIndex >= f2SubMenuList.length) f2SubMenuIndex = f2SubMenuList.length - 1; 
+          updateScreens(); 
+      }
+      else if (currentMode === "F2_SETTING_BRIGHT") {
+          settingBrightness += dir;
+          if (settingBrightness < 0) settingBrightness = 0;
+          if (settingBrightness > 4) settingBrightness = 4;
+          updateScreens();
+      } else if (currentMode === "F2_SETTING_VOL") {
+          settingVolume += dir;
+          if (settingVolume < 0) settingVolume = 0;
+          if (settingVolume > 8) settingVolume = 8;
+          updateScreens();
+      } else if (currentMode === "F2_SETTING_ACCURACY") {
+          settingAccuracy += dir;
+          if (settingAccuracy < 0) settingAccuracy = 0;
+          if (settingAccuracy > 5) settingAccuracy = 5;
+          updateScreens();
+      }
     }
 
     function pressDownArrow() { 
-        if (!isPowerOn || isLoading || currentMode.startsWith("BOOTING")) return; 
+        if (!isPowerOn || isLoading || currentMode === "F2_LOADING" || currentMode.startsWith("BOOTING")) return; 
         if (currentMode === "RUNNING") pressAnnounce(false); else pressArrow(1); 
     }
     
     function pressEnter() {
-      if (!isPowerOn || isLoading || currentMode.startsWith("BOOTING")) return; 
+      if (!isPowerOn || isLoading || currentMode === "F2_LOADING" || currentMode.startsWith("BOOTING")) return; 
       if (currentMode === "RUNNING" && isActivelyAnnouncing) return; 
       
       if (currentMode === "SELECT_ROUTE") { 
@@ -1366,6 +1473,42 @@
       } else if (currentMode === "F2_PASSWORD") { 
         if (passwordInput === "9876") { currentMode = "F2_MENU"; passwordInput = ""; updateScreens(); } 
         else { passwordInput = ""; updateScreens(); } 
+      } 
+      // ★ 處理 F2 進入子選單邏輯
+      else if (currentMode === "F2_MENU") {
+          const sel = f2MenuItems[f2MenuIndex];
+          if (["COPY", "數據上傳", "下載本字庫", "更新驅動"].includes(sel)) {
+              triggerF2Loading("準備中...<br>未找到文件目錄，請稍後<br>再試！", "F2_MENU");
+          } else if (sel === "網絡配置") {
+              triggerF2Loading("檢索中...<br>未發現任何配置文件，請<br>稍後再試！", "F2_MENU");
+          } else if (sel === "本機屬性") {
+              currentMode = "F2_MENU_ATTR"; f2SubMenuTitle = "本機屬性"; f2SubMenuList = ["亮度", "音量"]; f2SubMenuIndex = 0; updateScreens();
+          } else if (sel === "進階設定") {
+              currentMode = "F2_MENU_ADV"; f2SubMenuTitle = "程序下載"; f2SubMenuList = ["主機", "線控器", "顯示屏"]; f2SubMenuIndex = 0; updateScreens();
+          } else if (sel === "精度設定") {
+              currentMode = "F2_SETTING_ACCURACY"; updateScreens();
+          } else if (sel === "版本序列號") {
+              currentMode = "F2_MENU_VER"; f2SubMenuTitle = "版本序列號"; f2SubMenuList = ["讀取版本序列號", "設定序列號"]; f2SubMenuIndex = 0; updateScreens();
+          } else if (sel === "站點採樣") {
+              // 留空
+          }
+      } else if (currentMode === "F2_MENU_ATTR") {
+          const sel = f2SubMenuList[f2SubMenuIndex];
+          if (sel === "亮度") { currentMode = "F2_SETTING_BRIGHT"; updateScreens(); }
+          else if (sel === "音量") { currentMode = "F2_SETTING_VOL"; updateScreens(); }
+      } else if (currentMode === "F2_MENU_ADV") {
+          const sel = f2SubMenuList[f2SubMenuIndex];
+          if (sel === "主機") {
+              triggerF2Loading("檢索中...<br>未發現更新程序，請稍後<br>再試！", "F2_MENU_ADV");
+          } else if (sel === "線控器") {
+              currentMode = "F2_MENU_ADV_REMOTE"; f2SubMenuTitle = "下載數據-手抦"; f2SubMenuList = ["程序代碼", "字庫"]; f2SubMenuIndex = 0; updateScreens();
+          } else if (sel === "顯示屏") {
+              currentMode = "F2_MENU_ADV_DISP"; f2SubMenuTitle = "下載數據-顯示屏"; f2SubMenuList = ["程序代碼（6字）", "程序代碼（8字）", "字庫"]; f2SubMenuIndex = 0; updateScreens();
+          }
+      } else if (currentMode === "F2_MENU_ADV_REMOTE" || currentMode === "F2_MENU_ADV_DISP") {
+          triggerF2Loading("檢索中...<br>未發現更新程序，請稍後<br>再試！", currentMode);
+      } else if (currentMode === "F2_MENU_VER") {
+          currentMode = "F2_BLANK"; f2ReturnMode = "F2_MENU_VER"; updateScreens();
       }
     }
 
@@ -1445,7 +1588,7 @@
       
       stopAll(); isStarted = false; 
       if (pidsMode === '24') { renderPidsTopRow(); renderPidsMidArea(); renderPidsLowerArea("", false); }
-      else { renderPids17Inch("", false); }
+      else { renderPids17Inch("", false); } // 如果你之前將 pids.js 入面改咗 renderPids19Inch，請將呢句都改返
       updateScreens(); 
     }
 
@@ -1506,7 +1649,6 @@
     let excelLoaded = false;
     let storageIframeReady = false;
     let pendingSavedState = null;
-    let isRestoringMemory = false;
 
     window.addEventListener('message', function(event) {
         if (!event.data) return;
@@ -1519,12 +1661,10 @@
             }
         }
         else if (event.data.action === 'loaded' && event.data.route) {
-            // ★ 收到記憶只放入暫存，絕對唔擅自著機，強制等 user 撳電源掣！
             pendingSavedState = event.data;
         }
     });    
 
-    // ★ 開機自動載入進度 (全面封鎖非同步干擾)
     window.onload = async () => { 
         const w = window.innerWidth; const h = window.innerHeight;
         let initialScale = Math.min((w - 40) / 820, (h - 40) / 1100, 1);
@@ -1535,7 +1675,6 @@
 
         drawDirectLedGrid(null, null, 0, 0); updateScreens(); 
         
-        // 確保 Excel 數據在後台靜默載入，絕不提前觸發任何畫面
         await fetchExcelFromDrive(); 
         excelLoaded = true;
 
