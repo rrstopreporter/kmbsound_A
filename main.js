@@ -651,7 +651,7 @@
             drawDirectLedGrid(mx8, mx6, 0, 0); 
             setTimeout(() => {
                 if (isPowerOn && (token === undefined || token === currentSequenceToken)) {
-                    if (pidsMode === '17') renderPids17Inch(pageObj.t8, isEng8);
+                    if (pidsMode === '19') renderPids19Inch(pageObj.t8, isEng8);
                     else renderPidsLowerArea(pageObj.t8, isEng8);
                 }
             }, 100);
@@ -672,7 +672,7 @@
             currentText8 = processText8; currentText6 = processText6; currentIsEng8 = isEng8; currentIsEng6 = isEng6; 
             setTimeout(() => {
                 if (isPowerOn && (token === undefined || token === currentSequenceToken)) {
-                    if (pidsMode === '17') renderPids17Inch(pageObj.t8, isEng8);
+                    if (pidsMode === '19') renderPids19Inch(pageObj.t8, isEng8);
                     else renderPidsLowerArea(pageObj.t8, isEng8);
                 }
             }, 150);
@@ -1445,7 +1445,7 @@
       
       stopAll(); isStarted = false; 
       if (pidsMode === '24') { renderPidsTopRow(); renderPidsMidArea(); renderPidsLowerArea("", false); }
-      else { renderPids17Inch("", false); }
+      else { renderPids19Inch("", false); }
       updateScreens(); 
     }
 
