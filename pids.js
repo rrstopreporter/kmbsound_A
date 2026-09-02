@@ -22,7 +22,7 @@
             pids.style.height = "450px";
             pids.style.border = "15px solid #111"; 
             pids.style.borderRadius = "12px";
-            scaleWrapper.style.transform = "scale(0.625)"; 
+            scaleWrapper.style.transform = "scale(0.7)"; 
             if (outerContainer) outerContainer.style.height = "320px"; 
             if (sticker) { sticker.style.left = "300px"; sticker.style.bottom = "-20px"; }
         }
