@@ -83,8 +83,7 @@
     let isActivelyAnnouncing = false;
     let isNoMatch = false;
     let showRouteNotFound = false;
-    let passwordInput = ""; 
-    let serialPasswordInput = ""; // ★ 新增呢個用嚟裝設定序列號嘅密碼
+    let passwordInput = "";
     let f2MenuIndex = 0;
 
     let pidsMode = '24';
@@ -380,24 +379,17 @@
                   const workbook = XLSX.read(new Uint8Array(arrayBuffer), { type: 'array' });
 
                   if (workbook.SheetNames.includes("Stops")) {
-                    STATIONS_DB = {}; 
+                    STATIONS_DB = {};
                     XLSX.utils.sheet_to_json(workbook.Sheets["Stops"]).forEach(row => {
                       let sId = row.stop_id || row.stopid || row.STOP_ID || row.STOPID || row['車站編號'];
                       if (sId) {
-                        // ★ 智能讀取 H 同 I 欄 (第8、9格) 嘅座標，無嘅話就用預設值
-                        const rKeys = Object.keys(row);
-                        let coordX = row['H'] || row.X || row.x || (rKeys.length >= 8 ? row[rKeys[7]] : "1148.9697");
-                        let coordY = row['I'] || row.Y || row.y || (rKeys.length >= 9 ? row[rKeys[8]] : "2219.85682");
-                        
-                        STATIONS_DB[String(sId).trim()] = { 
-                          tc: String(row.name_tc || row.NAME_TC || row['中文站名'] || ""), 
-                          en: String(row.name_en || row.NAME_EN || row['英文站名'] || ""), 
-                          pth: String(row.name_pth || row.NAME_PTH || row['普通話站名'] || row['拼音'] || ""), 
-                          audioTc: String(row.audio_tc || row.AUDIO_TC || row['廣播中文'] || ""), 
-                          audioEn: String(row.audio_en || row.AUDIO_EN || row['廣播英文'] || ""), 
-                          audioPth: String(row.audio_pth || row.AUDIO_PTH || row['廣播普通話'] || ""),
-                          x: String(coordX), // ★ 記錄座標 X
-                          y: String(coordY)  // ★ 記錄座標 Y
+                        STATIONS_DB[String(sId).trim()] = {
+                          tc: String(row.name_tc || row.NAME_TC || row['中文站名'] || ""),
+                          en: String(row.name_en || row.NAME_EN || row['英文站名'] || ""),
+                          pth: String(row.name_pth || row.NAME_PTH || row['普通話站名'] || row['拼音'] || ""),
+                          audioTc: String(row.audio_tc || row.AUDIO_TC || row['廣播中文'] || ""),
+                          audioEn: String(row.audio_en || row.AUDIO_EN || row['廣播英文'] || ""),
+                          audioPth: String(row.audio_pth || row.AUDIO_PTH || row['廣播普通話'] || "")
                         };
                       }
                     });
@@ -1117,52 +1109,6 @@
                 </div>`;
               drawRemoteScreen([{ text: "" }, { text: "精度設定", align: "center" }]);
 
-} else if (currentMode === "F2_SAMPLING") {
-              // ★ 站點採樣 UI
-              const stop = activeRouteObj && activeRouteObj.data ? activeRouteObj.data[currentIndex] : null;
-              let routeText = currentRouteKey || "---";
-              let destText = activeRouteObj ? activeRouteObj.dest : "---";
-              let stopName = stop && stop.tc ? stop.tc.replace(/[>~|]/g, '') : "---";
-              let stopId = stop && stop.stopId ? stop.stopId : "---";
-              let seq = stop ? stop.seq : "0";
-              let cx = stop && stop.x ? stop.x : "1148.9697";
-              let cy = stop && stop.y ? stop.y : "2219.85682";
-
-              content.innerHTML = `
-                <fieldset class="route-ui-fieldset" style="margin: 0; height: 148px; box-sizing: border-box; padding: 2px 4px; border: 1px solid #111;">
-                    <legend class="route-ui-legend" style="font-size: 16px; margin-left: 8px; padding: 0 4px; color: #111;">座標採樣</legend>
-                    <div style="font-family: '微軟正黑體', sans-serif; font-size: 13px; color: #111; line-height: 1.35; padding: 0 2px;">
-                        <div style="display: flex; justify-content: space-between;">
-                            <span>路線: ${routeText}</span>
-                            <span>開往: ${destText}</span>
-                        </div>
-                        <div style="display: flex; justify-content: space-between; margin-top: 2px;">
-                            <span>${seq}</span>
-                            <span>歡迎乘坐九龍巴士</span>
-                        </div>
-                        <div style="margin-top: 2px;">
-                            <span>代碼:     ${stopId}</span>
-                        </div>
-                        
-                        <div style="display: flex; justify-content: space-between; margin-top: 6px; padding: 0 4px;">
-                            <fieldset style="width: 44%; border: 1px solid #111; padding: 2px 4px; height: 60px; margin:0; box-sizing: border-box;">
-                                <legend style="font-size: 12px; margin-left: 4px; padding: 0 2px;">站點座標</legend>
-                                <div style="font-size: 12px; line-height: 1.1; margin-top: -2px;">
-                                    <div>${cx}</div>
-                                    <div>${cy}</div>
-                                    <div>11.0</div>
-                                    <div>301</div>
-                                </div>
-                            </fieldset>
-                            <fieldset style="width: 44%; border: 1px solid #111; padding: 2px 4px; height: 60px; margin:0; box-sizing: border-box;">
-                                <legend style="font-size: 12px; margin-left: 4px; padding: 0 2px;">即時座標</legend>
-                                <div style="font-size: 12px; line-height: 1.1;"></div>
-                            </fieldset>
-                        </div>
-                    </div>
-                </fieldset>`;
-              drawRemoteScreen(getRemoteLinesData());
-
           } else if (currentMode === "F2_INFO_VER") {
               // 讀取版本序列號頁面
               content.innerHTML = `
@@ -1179,48 +1125,6 @@
                     </div>
                 </fieldset>`;
               drawRemoteScreen([{ text: "" }, { text: "本機屬性", align: "center" }]);
-
-} else if (currentMode === "F2_SET_SERIAL_PWD" || currentMode === "F2_SET_SERIAL_ERR") {
-              // ★ 設定序列號 (密碼框 + Error Pop-up)
-              const displayPwd = "●".repeat(serialPasswordInput.length);
-              let dialogHtml = "";
-              
-              if (currentMode === "F2_SET_SERIAL_ERR") {
-                  dialogHtml = `
-                    <div style="position: absolute; top: 12%; left: 50%; transform: translateX(-50%); width: 170px; background: #d4d0c8; border-top: 1px solid #fff; border-left: 1px solid #fff; border-right: 1px solid #404040; border-bottom: 1px solid #404040; box-shadow: 1px 1px 0px #000; z-index: 10;">
-                        <!-- 藍色標題列 (連 K 字 Logo 同 X 掣) -->
-                        <div style="background: #547BCE; height: 18px; display: flex; align-items: center; justify-content: space-between; padding: 0 2px; border-bottom: 1px solid #d4d0c8;">
-                            <div style="display: flex; align-items: center; gap: 4px;">
-                                <div style="width: 12px; height: 12px; background: #ffcc00; color: #111; font-weight: bold; font-size: 10px; display: flex; align-items: center; justify-content: center; border-radius: 2px;">K</div>
-                                <span style="color: #fff; font-family: 'Tahoma', sans-serif; font-size: 11px; font-weight: bold; letter-spacing: 0px;">Password Erro</span>
-                            </div>
-                            <div style="width: 14px; height: 14px; background: #547BCE; border-top: 1px solid #8caee6; border-left: 1px solid #8caee6; border-right: 1px solid #2a4c95; border-bottom: 1px solid #2a4c95; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: bold; font-size: 10px; line-height: 1;">x</div>
-                        </div>
-                        <!-- 白底對話框本體 -->
-                        <div style="padding: 12px 8px 8px 8px; display: flex; flex-direction: column; align-items: center; background: #fff;">
-                            <div style="display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%;">
-                                <div style="width: 22px; height: 22px; background: #fff; border-radius: 50%; border: 1.5px solid #666; display: flex; align-items: center; justify-content: center; font-family: 'Times New Roman', serif; font-size: 14px; font-style: italic; font-weight: bold; color: #547BCE; box-shadow: 1px 1px 0px rgba(0,0,0,0.2);">i</div>
-                                <span style="font-family: '微軟正黑體', sans-serif; font-size: 13px; color: #555;">Please try again</span>
-                            </div>
-                            <!-- 立體 OK 掣 (包埋焦點虛線) -->
-                            <div style="margin-top: 15px; width: 60px; height: 22px; display: flex; align-items: center; justify-content: center; border-top: 1px solid #fff; border-left: 1px solid #fff; border-right: 1px solid #404040; border-bottom: 1px solid #404040; background: #d4d0c8; color: #000; font-size: 12px; font-family: 'Tahoma', sans-serif; box-shadow: inset 1px 1px 0px #fff, inset -1px -1px 0px #808080; outline: 1px dotted #000; outline-offset: -3px;">
-                                OK
-                            </div>
-                        </div>
-                    </div>`;
-              }
-
-              content.innerHTML = `
-                <div style="display: flex; flex-direction: column; height: 148px; position: relative;">
-                    <div style="flex-grow: 1; display: flex; justify-content: flex-start; align-items: center; padding-left: 8px; font-size: 18px; font-weight: bold; letter-spacing: 2px; margin-top: -15px;">
-                        請輸入密碼
-                    </div>
-                    <div style="background-color: #ffffff; border: 2px solid #111; height: 26px; width: 100%; box-sizing: border-box; display: flex; align-items: center; padding: 0 6px; font-size: 14px; color: #111; letter-spacing: 4px; flex-shrink: 0;">
-                        ${displayPwd}
-                    </div>
-                    ${dialogHtml}
-                </div>`; 
-              drawRemoteScreen(getRemoteLinesData());
 
           } else if (currentMode === "F2_BLANK") {
               content.innerHTML = `<div style="width: 100%; height: 100%;"></div>`;
@@ -1577,20 +1481,6 @@
           return;
       }
 
-      if (currentMode === "F2_SAMPLING") {
-          currentMode = "F2_MENU";
-          updateScreens(); 
-          return; 
-      }
-      if (currentMode === "F2_SET_SERIAL_PWD" || currentMode === "F2_SET_SERIAL_ERR") {
-          currentMode = "F2_MENU_VER";
-          f2SubMenuTitle = "版本序列號"; 
-          f2SubMenuList = ["讀取版本序列號", "設定序列號"];
-          serialPasswordInput = "";
-          updateScreens(); 
-          return; 
-      }
-
       if (currentMode === "F2_BLANK") {
           currentMode = f2ReturnMode;
           if (f2ReturnMode === "F2_MENU_VER") {
@@ -1617,8 +1507,6 @@
     function pressMultiTap(digit) {
       if (!isPowerOn || isLoading || currentMode === "F2_LOADING" || currentMode.startsWith("BOOTING")) return;
       if (currentMode === "F2_PASSWORD") { if (passwordInput.length < 10) passwordInput += digit; updateScreens(); return; }
-      // ★ 喺上面嗰行下面，加多呢行：
-      if (currentMode === "F2_SET_SERIAL_PWD") { if (serialPasswordInput.length < 10) serialPasswordInput += digit; updateScreens(); return; }
       if (currentMode !== "SELECT_ROUTE") return;
 
       if (currentKeyDigit === digit) { currentKeyIndex = (currentKeyIndex + 1) % KEY_MAP[digit].length; }
@@ -1638,8 +1526,6 @@
       if (currentMode === "RUNNING") return;
 
       if (currentMode === "F2_PASSWORD") { if (passwordInput.length > 0) { passwordInput = passwordInput.slice(0, -1); updateScreens(); } return; }
-      // ★ 喺上面嗰行下面，加多呢行：
-      if (currentMode === "F2_SET_SERIAL_PWD") { if (serialPasswordInput.length > 0) { serialPasswordInput = serialPasswordInput.slice(0, -1); updateScreens(); } return; }
       if (currentMode === "SELECT_BOUND" || currentMode === "SELECT_TYPE") return;
 
       if (currentMode === "SELECT_ROUTE") {
@@ -1737,7 +1623,7 @@
           } else if (sel === "版本序列號") {
               currentMode = "F2_MENU_VER"; f2SubMenuTitle = "版本序列號"; f2SubMenuList = ["讀取版本序列號", "設定序列號"]; f2SubMenuIndex = 0; updateScreens();
           } else if (sel === "站點採樣") {
-              currentMode = "F2_SAMPLING"; updateScreens(); // ★ 加入站點採樣
+              // 留空
           }
       } else if (currentMode === "F2_MENU_ATTR") {
           const sel = f2SubMenuList[f2SubMenuIndex];
@@ -1758,21 +1644,11 @@
           const sel = f2SubMenuList[f2SubMenuIndex];
           if (sel === "讀取版本序列號") {
               currentMode = "F2_INFO_VER"; updateScreens();
-          } else if (sel === "設定序列號") {
-              currentMode = "F2_SET_SERIAL_PWD"; serialPasswordInput = ""; updateScreens(); // ★ 進入設定序列號
           } else {
               currentMode = "F2_BLANK"; f2ReturnMode = "F2_MENU_VER"; updateScreens();
           }
-      // ★ 處理序列號密碼驗證同 Error 框：
-      } else if (currentMode === "F2_SET_SERIAL_PWD") {
-          if (serialPasswordInput === "99999999") {
-              currentMode = "F2_BLANK"; f2ReturnMode = "F2_MENU_VER"; serialPasswordInput = ""; updateScreens();
-          } else {
-              currentMode = "F2_SET_SERIAL_ERR"; updateScreens();
-          }
-      } else if (currentMode === "F2_SET_SERIAL_ERR") {
-          currentMode = "F2_SET_SERIAL_PWD"; serialPasswordInput = ""; updateScreens();
       }
+    }
 
     function pressDirectionMenu() {
         if (!isPowerOn || isLoading || currentMode !== "RUNNING" || currentMode.startsWith("BOOTING")) return;
@@ -1951,3 +1827,5 @@
             frame.addEventListener('load', requestLoad);
         }
     };
+
+
