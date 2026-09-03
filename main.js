@@ -1109,6 +1109,23 @@
                 </div>`;
               drawRemoteScreen([{ text: "" }, { text: "精度設定", align: "center" }]);
 
+          } else if (currentMode === "F2_INFO_VER") {
+              // 讀取版本序列號頁面
+              content.innerHTML = `
+                <fieldset class="route-ui-fieldset" style="margin: 0; height: 148px; box-sizing: border-box; padding: 2px 6px;">
+                    <legend class="route-ui-legend" style="font-size: 18px; font-weight: bold; margin-left: 2px; padding: 0 4px; color: #111;">本機屬性</legend>
+
+                    <div style="font-family: '微軟正黑體', sans-serif; font-size: 13px; font-weight: bold; color: #111; line-height: 1.45; letter-spacing: 0px; margin-top: -2px;">
+                        <div>機器序列號: KS771600000000000000000</div>
+                        <div>數據庫起始版本:  20201209_v1</div>
+                        <div>數據庫版本:    20201209_v1</div>
+                        <div>Schema:      20140220</div>
+                        <div>本機IP地址:    192.168.1.2</div>
+                        <div>FTP服務器地址:  ftp://192.168.1.1/</div>
+                    </div>
+                </fieldset>`;
+              drawRemoteScreen([{ text: "" }, { text: "本機屬性", align: "center" }]);
+
           } else if (currentMode === "F2_BLANK") {
               content.innerHTML = `<div style="width: 100%; height: 100%;"></div>`;
               drawRemoteScreen([{ text: "" }]);
@@ -1455,6 +1472,15 @@
           return;
       }
 
+      // 由「讀取版本序列號」退返出「版本序列號」選單
+      if (currentMode === "F2_INFO_VER") {
+          currentMode = "F2_MENU_VER";
+          f2SubMenuTitle = "版本序列號";
+          f2SubMenuList = ["讀取版本序列號", "設定序列號"];
+          updateScreens();
+          return;
+      }
+
       if (currentMode === "F2_BLANK") {
           currentMode = f2ReturnMode;
           if (f2ReturnMode === "F2_MENU_VER") {
@@ -1615,7 +1641,12 @@
       } else if (currentMode === "F2_MENU_ADV_REMOTE" || currentMode === "F2_MENU_ADV_DISP") {
           triggerF2Loading("檢索中...<br>未發現更新程序，請稍後<br>再試！", currentMode);
       } else if (currentMode === "F2_MENU_VER") {
-          currentMode = "F2_BLANK"; f2ReturnMode = "F2_MENU_VER"; updateScreens();
+          const sel = f2SubMenuList[f2SubMenuIndex];
+          if (sel === "讀取版本序列號") {
+              currentMode = "F2_INFO_VER"; updateScreens();
+          } else {
+              currentMode = "F2_BLANK"; f2ReturnMode = "F2_MENU_VER"; updateScreens();
+          }
       }
     }
 
