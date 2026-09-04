@@ -1703,7 +1703,7 @@
         menuMode = "NONE"; currentMode = "RUNNING"; currentIndex = 0; ledCurrentIndex = 0; pidsCurrentIndex = 0; isStarted = false; attenCodeNum = 0; lastBeepedIndex = -1;
         saveState(); updateScreens(); startPidsTimers(); resumeDisplayLoopNoAudio();
       } else if (currentMode === "F2_PASSWORD") {
-        if (passwordInput === "9678") { currentMode = "F2_MENU"; passwordInput = ""; updateScreens(); }
+        if (passwordInput === "9876") { currentMode = "F2_MENU"; passwordInput = ""; updateScreens(); }
         else { passwordInput = ""; updateScreens(); }
       }
       // ★ 處理 F2 進入子選單邏輯
