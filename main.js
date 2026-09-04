@@ -92,7 +92,6 @@ let isRestoringMemory = false;
 
 const f2MenuItems = ["COPY", "本機屬性", "網絡配置", "進階設定", "站點採樣", "數據上傳", "下載本字庫", "更新驅動", "精度設定", "版本序列號"];
 
-// ★ F2 工程模式專用變數
 let f2SubMenuIndex = 0;
 let f2SubMenuList = [];
 let f2SubMenuTitle = "";
@@ -108,12 +107,10 @@ const bootImg2 = new Image(); bootImg2.crossOrigin = "anonymous"; bootImg2.src =
 const bootAudio = new Audio("https://rrstopreporter.github.io/kmbsound_A/start_sound.wav");
 const sectBeepAudio = new Audio("https://rrstopreporter.github.io/kmbsound_A/beep.wav");
 
-/* ★ PIDS 獨立定時器及狀態變數 */
 let pidsCurrentIndex = 0;
 let pidsPageIndex = 0;
 let pidsMainTimer = null;
 
-/* ★ 車長資料 */
 let driverTc = "";
 let driverEn = "";
 let driverNo = "";
@@ -261,7 +258,6 @@ document.addEventListener('keydown', function(event) {
   if (isRemoteStop) { event.preventDefault(); return pressStopPlayback(); }
   if (isRemoteEnter) { event.preventDefault(); return pressPassengerAtten(); }
 
-  // ★ 獨立捕捉上下左右箭嘴，呼叫全新的 handleDirection
   if (event.key === 'ArrowUp') { event.preventDefault(); return handleDirection('UP'); }
   if (event.key === 'ArrowDown') { event.preventDefault(); return handleDirection('DOWN'); }
   if (event.key === 'ArrowLeft') { event.preventDefault(); return handleDirection('LEFT'); }
@@ -673,8 +669,13 @@ function animateScrollIn(pageObj, isEnglish = false, token) {
         drawDirectLedGrid(mx8, mx6, 0, 0);
         setTimeout(() => {
             if (isPowerOn && (token === undefined || token === currentSequenceToken)) {
-                if (pidsMode === '19') renderPids19Inch(pageObj.t8, isEng8);
-                else renderPidsLowerArea(pageObj.t8, isEng8);
+                // ★ 加強防錯，確保正確 call 到對應排版
+                if (pidsMode === '24') {
+                    if (typeof renderPidsLowerArea === 'function') renderPidsLowerArea(pageObj.t8, isEng8);
+                } else {
+                    if (typeof renderPids17Inch === 'function') renderPids17Inch(pageObj.t8, isEng8);
+                    else if (typeof renderPids19Inch === 'function') renderPids19Inch(pageObj.t8, isEng8);
+                }
             }
         }, 100);
         return resolve();
@@ -694,8 +695,13 @@ function animateScrollIn(pageObj, isEnglish = false, token) {
         currentText8 = processText8; currentText6 = processText6; currentIsEng8 = isEng8; currentIsEng6 = isEng6;
         setTimeout(() => {
             if (isPowerOn && (token === undefined || token === currentSequenceToken)) {
-                if (pidsMode === '19') renderPids19Inch(pageObj.t8, isEng8);
-                else renderPidsLowerArea(pageObj.t8, isEng8);
+                // ★ 加強防錯，確保正確 call 到對應排版
+                if (pidsMode === '24') {
+                    if (typeof renderPidsLowerArea === 'function') renderPidsLowerArea(pageObj.t8, isEng8);
+                } else {
+                    if (typeof renderPids17Inch === 'function') renderPids17Inch(pageObj.t8, isEng8);
+                    else if (typeof renderPids19Inch === 'function') renderPids19Inch(pageObj.t8, isEng8);
+                }
             }
         }, 150);
         resolve();
@@ -1039,10 +1045,10 @@ function updateScreens() {
       } else if (currentMode === "F2_SETTING_BRIGHT") {
           let pct = (settingBrightness / 4) * 100;
           content.innerHTML = `
-            <div style="width: 100%; height: 152px; position: relative; padding: 25px 8px; box-sizing: border-box; text-align: left;">
+            <div style="width: 100%; height: 152px; position: relative; padding: 25px 4px; box-sizing: border-box; text-align: left;">
                <div style="font-size: 20px;">顯示屏亮度設置</div>
                <div style="font-size: 14px; margin-top: 45px;">顯示屏亮度:${settingBrightness}</div>
-               <div style="position: absolute; bottom: 8px; left: 5px; right: 5px; height: 16px; border: 1px dotted #888; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center;">
+               <div style="position: absolute; bottom: 3px; left: 5px; right: 5px; height: 16px; border: 1px dotted #888; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center;">
                    <div style="width: 100%; height: 4px; border-left: 1px solid #111; border-right: 1px border-top: 1px solid #111; border-bottom: 1px solid #111; box-sizing: border-box;"></div>
                    <div style="position: absolute; left: ${pct}%; top: 50%; transform: translate(-50%, -50%); width: 14px; height: 18px; z-index: 2;">
                        <svg width="14" height="18" viewBox="0 0 14 18" xmlns="http://www.w3.org/2000/svg">
@@ -1056,10 +1062,10 @@ function updateScreens() {
       } else if (currentMode === "F2_SETTING_VOL") {
           let pct = (settingVolume / 8) * 100;
           content.innerHTML = `
-            <div style="width: 100%; height: 152px; position: relative; padding: 20px 8px; box-sizing: border-box; text-align: left;">
+            <div style="width: 100%; height: 152px; position: relative; padding: 20px 4px; box-sizing: border-box; text-align: left;">
                <div style="font-size: 20px;">系統音量設置</div>
                <div style="font-size: 14px; margin-top: 45px;">當前音量:${settingVolume}</div>
-               <div style="position: absolute; bottom: 8px; left: 5px; right: 5px; height: 16px; border: 1px dotted #888; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center;">
+               <div style="position: absolute; bottom: 3px; left: 5px; right: 5px; height: 16px; border: 1px dotted #888; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center;">
                    <div style="width: 100%; height: 4px; border-left: 1px solid #111; border-right: 1px solid #111; border-top: 1px solid #111; border-bottom: 1px solid #111; box-sizing: border-box;"></div>
                    <div style="position: absolute; left: ${pct}%; top: 50%; transform: translate(-50%, -50%); width: 14px; height: 18px; z-index: 2;">
                        <svg width="14" height="18" viewBox="0 0 14 18" xmlns="http://www.w3.org/2000/svg">
@@ -1073,10 +1079,10 @@ function updateScreens() {
       } else if (currentMode === "F2_SETTING_ACCURACY") {
           let pct = (settingAccuracy / 5) * 100;
           content.innerHTML = `
-            <div style="width: 100%; height: 152px; position: relative; padding: 20px 8px; box-sizing: border-box; text-align: left;">
+            <div style="width: 100%; height: 152px; position: relative; padding: 20px 4px; box-sizing: border-box; text-align: left;">
                <div style="font-size: 20px;">系統精度設定</div>
                <div style="font-size: 14px; margin-top: 45px;">當前精度:${settingAccuracy}</div>
-               <div style="position: absolute; bottom: 8px; left: 5px; right: 5px; height: 16px; border: 1px dotted #888; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center;">
+               <div style="position: absolute; bottom: 3px; left: 5px; right: 5px; height: 16px; border: 1px dotted #888; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center;">
                    <div style="width: 100%; height: 4px; border-left: 1px solid #111; border-right: 1px border-top: 1px solid #111; border-bottom: 1px solid #111; box-sizing: border-box;"></div>
                    <div style="position: absolute; left: ${pct}%; top: 50%; transform: translate(-50%, -50%); width: 14px; height: 18px; z-index: 2;">
                        <svg width="14" height="18" viewBox="0 0 14 18" xmlns="http://www.w3.org/2000/svg">
@@ -1371,11 +1377,9 @@ async function playAnnouncementPhase(itemData, myToken, isSpecial = false) {
    按鈕操作邏輯
    ========================================= */
 
-// 保留給 HTML inline onclick 嘅 fallback (防止未 load 完就㩒)
 function pressArrow(val) { handleDirection(val === -1 ? 'UP' : 'RIGHT'); }
 function pressDownArrow() { handleDirection('DOWN'); }
 
-// ★ 全新整合嘅方向鍵核心邏輯 (解決 2x5 網格導航問題)
 function handleDirection(dir) {
     if (!isPowerOn || isLoading || currentMode === "F2_LOADING" || currentMode.startsWith("BOOTING")) return;
     if (currentMode === "RUNNING" && isActivelyAnnouncing) return;
@@ -1401,12 +1405,11 @@ function handleDirection(dir) {
     else if (currentMode === "SELECT_BOUND") { selectedBoundIndex = (selectedBoundIndex + val + boundsList.length) % boundsList.length; updateScreens(); }
     else if (currentMode === "SELECT_TYPE") { selectedTypeIndex = (selectedTypeIndex + val + typesList.length) % typesList.length; updateScreens(); }
 
-    // ★ 解決 F2 網格選擇問題嘅靈魂所在
     else if (currentMode === "F2_MENU") {
-        if (dir === 'UP' && f2MenuIndex > 0) f2MenuIndex--;
-        else if (dir === 'DOWN' && f2MenuIndex < f2MenuItems.length - 1) f2MenuIndex++;
-        else if (dir === 'LEFT' && f2MenuIndex < 5) f2MenuIndex += 5;
-        else if (dir === 'RIGHT' && f2MenuIndex >= 5) f2MenuIndex -= 5;
+        if (dir === 'UP' && f2MenuIndex !== 0 && f2MenuIndex !== 5ok) f2MenuIndex--;
+        else if (dir === 'DOWN' && f2MenuIndex !== 4 && f2MenuIndex !== 9) f2MenuIndex++;
+        else if (dir === 'LEFT' && f2MenuIndex >= 5) f2MenuIndex -= 5;
+        else if (dir === 'RIGHT' && f2MenuIndex < 5) f2MenuIndex += 5;
         updateScreens();
     }
 
@@ -1818,7 +1821,10 @@ function pressStopPlayback() {
 
   stopAll(); isStarted = false;
   if (pidsMode === '24') { renderPidsTopRow(); renderPidsMidArea(); renderPidsLowerArea("", false); }
-  else { renderPids17Inch("", false); }
+  else {
+      if (typeof renderPids17Inch === 'function') renderPids17Inch("", false);
+      else if (typeof renderPids19Inch === 'function') renderPids19Inch("", false);
+  }
   updateScreens();
 }
 
@@ -1903,7 +1909,6 @@ window.onload = async () => {
     const slider = document.getElementById('zoomSlider');
     if (slider) { slider.value = initialScale; manualZoom(initialScale); }
 
-    // ★ 攔截 HTML 裡面嘅箭咀掣 onclick，賦予明確嘅「上下左右」指令
     document.querySelectorAll('.btn-arrow').forEach(btn => {
         const t = btn.innerText;
         if (t.includes('↑')) btn.onclick = (e) => { e.preventDefault(); handleDirection('UP'); };
@@ -1911,6 +1916,13 @@ window.onload = async () => {
         if (t.includes('←')) btn.onclick = (e) => { e.preventDefault(); handleDirection('LEFT'); };
         if (t.includes('→')) btn.onclick = (e) => { e.preventDefault(); handleDirection('RIGHT'); };
     });
+
+    // ★ 核心修復：強制 PIDS 引擎一開機就預設載入 24 吋標準模式
+    setTimeout(() => {
+        if (typeof switchPidsMode === 'function') {
+            switchPidsMode('24');
+        }
+    }, 100);
 
     drawDirectLedGrid(null, null, 0, 0); updateScreens();
 
