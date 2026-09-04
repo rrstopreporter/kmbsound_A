@@ -84,6 +84,7 @@
     let isNoMatch = false;
     let showRouteNotFound = false;
     let passwordInput = "";
+    let serialPasswordInput = ""; // ★ 新增呢個用嚟裝設定序列號嘅密碼
     let f2MenuIndex = 0;
 
     let pidsMode = '24';
@@ -383,13 +384,20 @@
                     XLSX.utils.sheet_to_json(workbook.Sheets["Stops"]).forEach(row => {
                       let sId = row.stop_id || row.stopid || row.STOP_ID || row.STOPID || row['車站編號'];
                       if (sId) {
+                        // ★ 智能讀取 H 同 I 欄 (第8、9格) 嘅座標，無嘅話就用預設值
+                        const rKeys = Object.keys(row);
+                        let coordX = row['H'] || row.X || row.x || (rKeys.length >= 8 ? row[rKeys[7]] : "1148.9697");
+                        let coordY = row['I'] || row.Y || row.y || (rKeys.length >= 9 ? row[rKeys[8]] : "2219.85682");
+
                         STATIONS_DB[String(sId).trim()] = {
                           tc: String(row.name_tc || row.NAME_TC || row['中文站名'] || ""),
                           en: String(row.name_en || row.NAME_EN || row['英文站名'] || ""),
                           pth: String(row.name_pth || row.NAME_PTH || row['普通話站名'] || row['拼音'] || ""),
                           audioTc: String(row.audio_tc || row.AUDIO_TC || row['廣播中文'] || ""),
                           audioEn: String(row.audio_en || row.AUDIO_EN || row['廣播英文'] || ""),
-                          audioPth: String(row.audio_pth || row.AUDIO_PTH || row['廣播普通話'] || "")
+                          audioPth: String(row.audio_pth || row.AUDIO_PTH || row['廣播普通話'] || ""),
+                          x: String(coordX), // ★ 記錄座標 X
+                          y: String(coordY)  // ★ 記錄座標 Y
                         };
                       }
                     });
@@ -965,16 +973,15 @@
             const displayPwd = "●".repeat(passwordInput.length);
             content.innerHTML = `
                 <div style="display: flex; flex-direction: column; height: 148px;">
-                    <!-- ★ justify-content 改做 flex-start (靠左)，加 padding-left 留少少位 -->
-                    <div style="flex-grow: 1; display: flex; justify-content: flex-start; align-items: center; padding-left: 8px; font-size: 18px; font-weight: bold; margin-top: -15px;">
+                    <div style="flex-grow: 1; display: flex; justify-content: flex-start; align-items: center; padding-left: 8px; font-size: 18px; font-weight: bold; letter-spacing: 2px; margin-top: -15px;">
                         請輸入密碼
                     </div>
-                    <!-- ★ 密碼框保持喺最底 -->
                     <div style="background-color: #ffffff; border: 2px solid #111; height: 26px; width: 100%; box-sizing: border-box; display: flex; align-items: center; padding: 0 6px; font-size: 14px; color: #111; letter-spacing: 4px; flex-shrink: 0;">
                         ${displayPwd}
                     </div>
                 </div>`;
-            drawRemoteScreen([{ text: "" }, { text: "輸入密碼", align: "center" }]);
+            drawRemoteScreen(getRemoteLinesData());
+
           } else if (currentMode === "F2_MENU") {
             let f2MenuHtml = '';
             for (let i = 0; i < f2MenuItems.length; i++) {
@@ -984,16 +991,11 @@
                 f2MenuHtml += `<div class="route-ui-radio-item${activeClass}" style="width: 100%;">${circle} <span class="radio-text">${f2MenuItems[i]}</span></div>`;
             }
             content.innerHTML = `<fieldset class="route-ui-fieldset" style="margin: 0; height: 148px; box-sizing: border-box;"><legend class="route-ui-legend">功能</legend><div style="position: absolute; top: 11px; bottom: 6px; left: 4px; right: 4px; display: grid; grid-template-columns: 85px 1fr; grid-template-rows: repeat(5, 1fr); grid-auto-flow: column; align-items: center;">${f2MenuHtml}</div></fieldset>`;
-            drawRemoteScreen([{ text: "" }, { text: "功能選單", align: "center" }]);
+            drawRemoteScreen(getRemoteLinesData());
 
-          // ==============================
-          // ★ F2 子選單層級與設定介面 ★
-          // ==============================
           } else if (currentMode.startsWith("F2_MENU_")) {
               let html = '';
               let displayCount = f2SubMenuList.length;
-
-              // ★ 自動計算上下平分嘅距離 (跟返之前嗰啲設定)
               let rowGap = '2px';
               if (displayCount === 2) rowGap = '23px';
               else if (displayCount === 3) rowGap = '14px';
@@ -1006,7 +1008,7 @@
                   html += `<div class="route-ui-radio-item${activeClass}">${circle} <span class="radio-text">${f2SubMenuList[i]}</span></div>`;
               }
               content.innerHTML = `<fieldset class="route-ui-fieldset" style="margin: 0; height: 148px; box-sizing: border-box;"><legend class="route-ui-legend">${f2SubMenuTitle}</legend><div style="position: absolute; top: 11px; bottom: 6px; left: 2px; right: 4px; display: flex; flex-direction: column; justify-content: center; gap: ${rowGap}; padding-left: 2px;">${html}</div></fieldset>`;
-              drawRemoteScreen([{ text: "" }, { text: f2SubMenuTitle, align: "center" }]);
+              drawRemoteScreen(getRemoteLinesData());
 
           } else if (currentMode === "F2_LOADING") {
               content.innerHTML = `
@@ -1034,97 +1036,177 @@
 
                 </div>`;
               drawRemoteScreen([{ text: "" }, { text: "處理中...", align: "center", bgColor: "#0000ff", textColor: "#fff" }]);
+
           } else if (currentMode === "F2_SETTING_BRIGHT") {
-              // 亮度最大係 4，計返百分比 (0% - 100%)
               let pct = (settingBrightness / 4) * 100;
               content.innerHTML = `
-                <div style="width: 100%; height: 148px; position: relative; padding: 20px 5px; box-sizing: border-box;">
-                   <div style="font-size: 20px;">顯示屏亮度設置</div>
-                   <div style="font-size: 16px; margin-top: 45px;">顯示屏亮度:${settingBrightness}</div>
-
-                   <!-- 底部路軌 -->
-                   <div style="position: absolute; bottom: 1px; left: 5px; right: 5px; height: 16px; border: 1px dotted #888; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center;">
-
-                       <!-- 中間實線 (路軌本體) -->
+                <div style="width: 100%; height: 148px; position: relative; padding: 15px 12px; box-sizing: border-box; font-family: '微軟正黑體', sans-serif;">
+                   <div style="font-size: 20px; letter-spacing: 2px; color: #111;">顯示屏亮度設置</div>
+                   <div style="font-size: 20px; letter-spacing: 2px; color: #111; margin-top: 25px;">顯示屏亮度:${settingBrightness}</div>
+                   <div style="position: absolute; bottom: 20px; left: 15px; right: 15px; height: 16px; border: 1px dotted #888; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center;">
                        <div style="width: 100%; height: 4px; border-top: 1px solid #111; border-bottom: 1px solid #111; box-sizing: border-box;"></div>
-
-                       <!-- 游標 (SVG 完美還原盾牌形 + 兩粒眼仔) -->
                        <div style="position: absolute; left: ${pct}%; top: 50%; transform: translate(-50%, -50%); width: 14px; height: 18px; z-index: 2;">
                            <svg width="14" height="18" viewBox="0 0 14 18" xmlns="http://www.w3.org/2000/svg">
-                               <!-- 外圍盾牌形狀 -->
-                               <polygon points="1.5,1.5 12.5,1.5 12.5,11 7,16.5 1.5,11" fill="#00A2E8" stroke="#111" stroke-width="1" stroke-linejoin="round"/>
+                               <polygon points="1.5,1.5 12.5,1.5 12.5,11 7,16.5 1.5,11" fill="#fff" stroke="#111" stroke-width="1.5" stroke-linejoin="round"/>
+                               <rect x="3.5" y="5" width="2" height="2.5" fill="#111"/>
+                               <rect x="8.5" y="5" width="2" height="2.5" fill="#111"/>
                            </svg>
                        </div>
                    </div>
                 </div>`;
-              drawRemoteScreen([{ text: "" }, { text: "亮度設置", align: "center" }]);
+              drawRemoteScreen(getRemoteLinesData());
 
           } else if (currentMode === "F2_SETTING_VOL") {
-              // 音量最大係 8
               let pct = (settingVolume / 8) * 100;
               content.innerHTML = `
-                <div style="width: 100%; height: 148px; position: relative; padding: 20px 5px; box-sizing: border-box;">
-                   <div style="font-size: 20px;">系統音量設置</div>
-                   <div style="font-size: 16px; margin-top: 45px;">當前音量:${settingVolume}</div>
-
-                   <!-- 底部路軌 -->
-                   <div style="position: absolute; bottom: 1px; left: 5px; right: 5px; height: 16px; border: 1px dotted #888; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center;">
-
-                       <!-- 中間實線 (路軌本體) -->
+                <div style="width: 100%; height: 148px; position: relative; padding: 15px 12px; box-sizing: border-box; font-family: '微軟正黑體', sans-serif;">
+                   <div style="font-size: 20px; letter-spacing: 2px; color: #111;">系統音量設置</div>
+                   <div style="font-size: 20px; letter-spacing: 2px; color: #111; margin-top: 25px;">當前音量:${settingVolume}</div>
+                   <div style="position: absolute; bottom: 20px; left: 15px; right: 15px; height: 16px; border: 1px dotted #888; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center;">
                        <div style="width: 100%; height: 4px; border-top: 1px solid #111; border-bottom: 1px solid #111; box-sizing: border-box;"></div>
-
-                       <!-- 游標 (SVG 完美還原盾牌形 + 兩粒眼仔) -->
                        <div style="position: absolute; left: ${pct}%; top: 50%; transform: translate(-50%, -50%); width: 14px; height: 18px; z-index: 2;">
                            <svg width="14" height="18" viewBox="0 0 14 18" xmlns="http://www.w3.org/2000/svg">
-                               <!-- 外圍盾牌形狀 -->
-                               <polygon points="1.5,1.5 12.5,1.5 12.5,11 7,16.5 1.5,11" fill="#00A2E8" stroke="#111" stroke-width="1" stroke-linejoin="round"/>
+                               <polygon points="1.5,1.5 12.5,1.5 12.5,11 7,16.5 1.5,11" fill="#fff" stroke="#111" stroke-width="1.5" stroke-linejoin="round"/>
+                               <rect x="3.5" y="5" width="2" height="2.5" fill="#111"/>
+                               <rect x="8.5" y="5" width="2" height="2.5" fill="#111"/>
                            </svg>
                        </div>
                    </div>
                 </div>`;
-              drawRemoteScreen([{ text: "" }, { text: "音量設置", align: "center" }]);
+              drawRemoteScreen(getRemoteLinesData());
 
           } else if (currentMode === "F2_SETTING_ACCURACY") {
-              // 精度最大係 5 (順便統一埋風格)
               let pct = (settingAccuracy / 5) * 100;
               content.innerHTML = `
-                <div style="width: 100%; height: 148px; position: relative; padding: 20px 5px; box-sizing: border-box;">
-                   <div style="font-size: 20px;">系統精度設定</div>
-                   <div style="font-size: 16px; margin-top: 45px;">當前精度:${settingAccuracy}</div>
-
-                   <!-- 底部路軌 -->
-                   <div style="position: absolute; bottom: 1px; left: 5px; right: 5px; height: 16px; border: 1px dotted #888; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center;">
-
-                       <!-- 中間實線 (路軌本體) -->
+                <div style="width: 100%; height: 148px; position: relative; padding: 15px 12px; box-sizing: border-box; font-family: '微軟正黑體', sans-serif;">
+                   <div style="font-size: 20px; letter-spacing: 2px; color: #111;">系統精度設定</div>
+                   <div style="font-size: 20px; letter-spacing: 2px; color: #111; margin-top: 25px;">當前精度:${settingAccuracy}</div>
+                   <div style="position: absolute; bottom: 20px; left: 15px; right: 15px; height: 16px; border: 1px dotted #888; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center;">
                        <div style="width: 100%; height: 4px; border-top: 1px solid #111; border-bottom: 1px solid #111; box-sizing: border-box;"></div>
-
-                       <!-- 游標 (SVG 完美還原盾牌形 + 兩粒眼仔) -->
                        <div style="position: absolute; left: ${pct}%; top: 50%; transform: translate(-50%, -50%); width: 14px; height: 18px; z-index: 2;">
                            <svg width="14" height="18" viewBox="0 0 14 18" xmlns="http://www.w3.org/2000/svg">
-                               <!-- 外圍盾牌形狀 -->
-                               <polygon points="1.5,1.5 12.5,1.5 12.5,11 7,16.5 1.5,11" fill="#00A2E8" stroke="#111" stroke-width="1" stroke-linejoin="round"/>
+                               <polygon points="1.5,1.5 12.5,1.5 12.5,11 7,16.5 1.5,11" fill="#fff" stroke="#111" stroke-width="1.5" stroke-linejoin="round"/>
+                               <rect x="3.5" y="5" width="2" height="2.5" fill="#111"/>
+                               <rect x="8.5" y="5" width="2" height="2.5" fill="#111"/>
                            </svg>
                        </div>
                    </div>
                 </div>`;
-              drawRemoteScreen([{ text: "" }, { text: "精度設定", align: "center" }]);
+              drawRemoteScreen(getRemoteLinesData());
 
           } else if (currentMode === "F2_INFO_VER") {
-              // 讀取版本序列號頁面
               content.innerHTML = `
                 <fieldset class="route-ui-fieldset" style="margin: 0; height: 148px; box-sizing: border-box; padding: 2px 6px;">
                     <legend class="route-ui-legend" style="font-size: 18px; font-weight: bold; margin-left: 2px; padding: 0 4px; color: #111;">本機屬性</legend>
 
-                    <div style="font-family: '微軟正黑體', sans-serif; font-size: 13px; font-weight: bold; color: #111; line-height: 1.45; letter-spacing: 0px; margin-top: -2px;">
+                    <!-- ★ 改咗呢度：font-size: 10.5px, letter-spacing: -0.5px (字距逼少少), 同埋加咗 white-space: nowrap (強制不准換行) -->
+                    <div style="font-size: 11px; line-height: 1.7; letter-spacing: -1px; margin-top: 2px; white-space: nowrap;">
+                    <!-- 第一行：獨立一行 -->
                         <div>機器序列號: KS771600000000000000000</div>
-                        <div>數據庫起始版本:  20201209_v1</div>
-                        <div>數據庫版本:    20201209_v1</div>
-                        <div>Schema:      20140220</div>
-                        <div>本機IP地址:    192.168.1.2</div>
-                        <div>FTP服務器地址:  ftp://192.168.1.1/</div>
+
+                        <!-- 第二至第六行：用 Grid 完美對齊 -->
+                        <!-- grid-template-columns: 100px 1fr 代表左邊標題固定佔 100px 闊度，右邊數值佔淨低所有位 -->
+                        <div style="display: grid; grid-template-columns: 100px 1fr; margin-top: 0px;">
+                            <div>數據庫起始版本:</div><div>20201209_v1</div>
+                            <div>數據庫版本:</div><div>20201209_v1</div>
+                            <div>Schema:</div><div>20140220</div>
+                            <div>本機IP地址:</div><div>192.168.1.2</div>
+                            <div>FTP服務器地址:</div><div>ftp://192.168.1.1/</div>
+                        </div>
                     </div>
                 </fieldset>`;
-              drawRemoteScreen([{ text: "" }, { text: "本機屬性", align: "center" }]);
+              drawRemoteScreen(getRemoteLinesData());
+
+          } else if (currentMode === "F2_SAMPLING") {
+              const stop = activeRouteObj && activeRouteObj.data ? activeRouteObj.data[currentIndex] : null;
+              let routeText = currentRouteKey || "---";
+              let destText = activeRouteObj ? activeRouteObj.dest : "---";
+
+              // ★ 拎返當前站名，如果冇站名就出句預設字
+              let stopName = stop && stop.tc ? stop.tc.replace(/[>~|]/g, '') : "歡迎乘坐九龍巴士";
+
+              let stopId = stop && stop.stopId ? stop.stopId : "---";
+              let seq = stop ? stop.seq : "0";
+              let cx = stop && stop.x ? stop.x : "0000.0000";
+              let cy = stop && stop.y ? stop.y : "0000.00000";
+
+              content.innerHTML = `
+                <fieldset class="route-ui-fieldset" style="margin: 0; height: 148px; box-sizing: border-box; padding: 2px 4px; border: 1px solid #111;">
+                    <legend class="route-ui-legend" style="font-size: 16px; margin-left: 8px; padding: 0 4px; color: #111;">座標採樣</legend>
+                    <div style="font-size: 12px; line-height: 1.2; letter-spacing: -0.5px;">
+
+                        <!-- ★ 用 Grid 斬開左右兩截：左邊霸 85px，右邊霸晒淨低啲位，咁就一定對得齊 -->
+                        <div style="display: grid; grid-template-columns: 65px 1fr;">
+                            <div>路線:${routeText}</div>
+                            <div>開往:${destText}</div>
+
+                            <div>${seq}</div>
+                            <div>　${stopName}</div>
+
+                            <div>代碼:</div>
+                            <div>　${stopId}</div>
+                        </div>
+
+                        <div style="display: flex; justify-content: space-between; margin-top: 6px; padding: 0 4px;">
+                            <fieldset style="width: 44%; border: 1px solid #111; padding: 2px 4px; height: 70px; margin:0; box-sizing: border-box;">
+                                <legend style="font-size: 12px; margin-left: 4px; padding: 0 2px;">站點座標</legend>
+                                <div style="font-size: 12px; line-height: 1.1; margin-top: -2px;">
+                                    <div>${cx}</div>
+                                    <div>${cy}</div>
+                                    <div>11.0</div>
+                                    <div>301</div>
+                                </div>
+                            </fieldset>
+                            <fieldset style="width: 40%; border: 1px solid #111; padding: 2px 4px; height: 70px; margin:0; box-sizing: border-box;">
+                                <legend style="font-size: 12px; margin-left: 4px; padding: 0 2px;">即時座標</legend>
+                                <div style="font-size: 12px; line-height: 1.1;"></div>
+                            </fieldset>
+                        </div>
+                    </div>
+                </fieldset>`;
+              drawRemoteScreen(getRemoteLinesData());
+
+          } else if (currentMode === "F2_SET_SERIAL_PWD" || currentMode === "F2_SET_SERIAL_ERR") {
+              // ★ 設定序列號 (密碼框 + Error Pop-up)
+              const displayPwd = "●".repeat(serialPasswordInput.length);
+              let dialogHtml = "";
+
+              if (currentMode === "F2_SET_SERIAL_ERR") {
+                  dialogHtml = `
+                    <div style="position: absolute; top: 12%; left: 50%; transform: translateX(-50%); width: 170px; background: #d4d0c8; border-top: 1px solid #fff; border-left: 1px solid #fff; border-right: 1px solid #404040; border-bottom: 1px solid #404040; box-shadow: 1px 1px 0px #000; z-index: 10;">
+                        <!-- 藍色標題列 (連 K 字 Logo 同 X 掣) -->
+                        <div style="background: #547BCE; height: 18px; display: flex; align-items: center; justify-content: space-between; padding: 0 2px; border-bottom: 1px solid #d4d0c8;">
+                            <div style="display: flex; align-items: center; gap: 4px;">
+                                <div style="width: 12px; height: 12px; background: #ffcc00; color: #111; font-weight: bold; font-size: 10px; display: flex; align-items: center; justify-content: center; border-radius: 2px;">K</div>
+                                <span style="color: #fff; font-family: 'Tahoma', sans-serif; font-size: 11px; font-weight: bold; letter-spacing: 0px;">Password Erro</span>
+                            </div>
+                            <div style="width: 14px; height: 14px; background: #547BCE; border-top: 1px solid #8caee6; border-left: 1px solid #8caee6; border-right: 1px solid #2a4c95; border-bottom: 1px solid #2a4c95; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: bold; font-size: 10px; line-height: 1;">x</div>
+                        </div>
+                        <!-- 白底對話框本體 -->
+                        <div style="padding: 12px 8px 8px 8px; display: flex; flex-direction: column; align-items: center; background: #fff;">
+                            <div style="display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%;">
+                                <div style="width: 22px; height: 22px; background: #fff; border-radius: 50%; border: 1.5px solid #666; display: flex; align-items: center; justify-content: center; font-family: 'Times New Roman', serif; font-size: 14px; font-style: italic; font-weight: bold; color: #547BCE; box-shadow: 1px 1px 0px rgba(0,0,0,0.2);">i</div>
+                                <span style="font-family: '微軟正黑體', sans-serif; font-size: 13px; color: #555;">Please try again</span>
+                            </div>
+                            <!-- 立體 OK 掣 (包埋焦點虛線) -->
+                            <div style="margin-top: 15px; width: 60px; height: 22px; display: flex; align-items: center; justify-content: center; border-top: 1px solid #fff; border-left: 1px solid #fff; border-right: 1px solid #404040; border-bottom: 1px solid #404040; background: #d4d0c8; color: #000; font-size: 12px; font-family: 'Tahoma', sans-serif; box-shadow: inset 1px 1px 0px #fff, inset -1px -1px 0px #808080; outline: 1px dotted #000; outline-offset: -3px;">
+                                OK
+                            </div>
+                        </div>
+                    </div>`;
+              }
+
+              content.innerHTML = `
+                <div style="display: flex; flex-direction: column; height: 152px; position: relative;">
+                    <div style="flex-grow: 1; display: flex; justify-content: flex-start; align-items: center; padding-left: 8px; font-size: 18px; font-weight: bold; margin-top: -5px;">
+                        請輸入密碼
+                    </div>
+                    <div style="background-color: #ffffff; border: 2px solid #111; height: 26px; width: 100%; box-sizing: border-box; display: flex; align-items: center; padding: 0 2px; font-size: 14px; color: #111; letter-spacing: 4px; flex-shrink: 0;">
+                        ${displayPwd}
+                    </div>
+                    ${dialogHtml}
+                </div>`;
+              drawRemoteScreen(getRemoteLinesData());
 
           } else if (currentMode === "F2_BLANK") {
               content.innerHTML = `<div style="width: 100%; height: 100%;"></div>`;
@@ -1481,6 +1563,21 @@
           return;
       }
 
+      if (currentMode === "F2_SAMPLING") {
+          currentMode = "F2_MENU";
+          updateScreens();
+          return;
+      }
+
+      if (currentMode === "F2_SET_SERIAL_PWD" || currentMode === "F2_SET_SERIAL_ERR") {
+          currentMode = "F2_MENU_VER";
+          f2SubMenuTitle = "版本序列號";
+          f2SubMenuList = ["讀取版本序列號", "設定序列號"];
+          serialPasswordInput = "";
+          updateScreens();
+          return;
+      }
+
       if (currentMode === "F2_BLANK") {
           currentMode = f2ReturnMode;
           if (f2ReturnMode === "F2_MENU_VER") {
@@ -1507,6 +1604,7 @@
     function pressMultiTap(digit) {
       if (!isPowerOn || isLoading || currentMode === "F2_LOADING" || currentMode.startsWith("BOOTING")) return;
       if (currentMode === "F2_PASSWORD") { if (passwordInput.length < 10) passwordInput += digit; updateScreens(); return; }
+      if (currentMode === "F2_SET_SERIAL_PWD") { if (serialPasswordInput.length < 10) serialPasswordInput += digit; updateScreens(); return; }
       if (currentMode !== "SELECT_ROUTE") return;
 
       if (currentKeyDigit === digit) { currentKeyIndex = (currentKeyIndex + 1) % KEY_MAP[digit].length; }
@@ -1526,6 +1624,7 @@
       if (currentMode === "RUNNING") return;
 
       if (currentMode === "F2_PASSWORD") { if (passwordInput.length > 0) { passwordInput = passwordInput.slice(0, -1); updateScreens(); } return; }
+      if (currentMode === "F2_SET_SERIAL_PWD") { if (serialPasswordInput.length > 0) { serialPasswordInput = serialPasswordInput.slice(0, -1); updateScreens(); } return; }
       if (currentMode === "SELECT_BOUND" || currentMode === "SELECT_TYPE") return;
 
       if (currentMode === "SELECT_ROUTE") {
@@ -1623,7 +1722,7 @@
           } else if (sel === "版本序列號") {
               currentMode = "F2_MENU_VER"; f2SubMenuTitle = "版本序列號"; f2SubMenuList = ["讀取版本序列號", "設定序列號"]; f2SubMenuIndex = 0; updateScreens();
           } else if (sel === "站點採樣") {
-              // 留空
+              currentMode = "F2_SAMPLING"; updateScreens();
           }
       } else if (currentMode === "F2_MENU_ATTR") {
           const sel = f2SubMenuList[f2SubMenuIndex];
@@ -1644,9 +1743,20 @@
           const sel = f2SubMenuList[f2SubMenuIndex];
           if (sel === "讀取版本序列號") {
               currentMode = "F2_INFO_VER"; updateScreens();
+          } else if (sel === "設定序列號") {
+              currentMode = "F2_SET_SERIAL_PWD"; serialPasswordInput = ""; updateScreens(); // ★ 進入設定序列號
           } else {
               currentMode = "F2_BLANK"; f2ReturnMode = "F2_MENU_VER"; updateScreens();
           }
+      // ★ 處理序列號密碼驗證同 Error 框：
+      } else if (currentMode === "F2_SET_SERIAL_PWD") {
+          if (serialPasswordInput === "99999999") {
+              currentMode = "F2_BLANK"; f2ReturnMode = "F2_MENU_VER"; serialPasswordInput = ""; updateScreens();
+          } else {
+              currentMode = "F2_SET_SERIAL_ERR"; updateScreens();
+          }
+      } else if (currentMode === "F2_SET_SERIAL_ERR") {
+          currentMode = "F2_SET_SERIAL_PWD"; serialPasswordInput = ""; updateScreens();
       }
     }
 
@@ -1827,5 +1937,3 @@
             frame.addEventListener('load', requestLoad);
         }
     };
-
-
