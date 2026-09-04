@@ -1102,7 +1102,7 @@
                     <!-- ★ 改咗呢度：font-size: 10.5px, letter-spacing: -0.5px (字距逼少少), 同埋加咗 white-space: nowrap (強制不准換行) -->
                     <div style="font-size: 11px; line-height: 1.7; letter-spacing: -1px; margin-top: 2px; white-space: nowrap;">
                     <!-- 第一行：獨立一行 -->
-                        <div>機器序列號: KS771600000000000000000</div>
+                        <div>機器序列號: 00000000000000000000000</div>
 
                         <!-- 第二至第六行：用 Grid 完美對齊 -->
                         <!-- grid-template-columns: 100px 1fr 代表左邊標題固定佔 100px 闊度，右邊數值佔淨低所有位 -->
