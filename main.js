@@ -883,7 +883,7 @@ function getRemoteLinesData() {
     let nameL1 = cleanName.length > 6 ? cleanName.substring(0, 6) : cleanName; let nameL2 = cleanName.length > 6 ? cleanName.substring(6) : "";
     return [
         { text: `　路:${currentRouteKey}` }, { text: activeRouteObj.dest }, { text: activeRouteObj.type.substring(0, 6) },
-        { text: ` 下一站:${formatStopNum(currentIndex)}` }, { text: nameL1 }, { text: nameL2 }, { text: line7 }, { text: line8 }, { text: line9 }
+        { text: ` 下一站:${formatStopNum(currentIndex)}` }, { text: nameL1 }, { text: nameL2.substring(0, 5) }, { text: line7 }, { text: line8 }, { text: line9 }
     ];
   } else {
     return [ { text: `　路:` }, { text: "" }, { text: "" }, { text: ` 下一站:` }, { text: "" }, { text: "" }, { text: line7 }, { text: line8 }, { text: line9 } ];
