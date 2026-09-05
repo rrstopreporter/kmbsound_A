@@ -476,7 +476,10 @@ function buildRouteData(routeKey, boundKey, typeKey) {
       audioTc: row.audio_tc || row.AUDIO_TC || row['廣播中文'] || dbObj.audioTc || "",
       audioEn: row.audio_en || row.AUDIO_EN || row['廣播英文'] || dbObj.audioEn || "",
       audioPth: row.audio_pth || row.AUDIO_PTH || row['廣播普通話'] || dbObj.audioPth || "",
-      pidsTc: (rawTc !== undefined ? String(rawTc) : "").trim(), pidsEn: (rawEn !== undefined ? String(rawEn) : "")
+
+      // ★ 核心修改：幫 PIDS 中文刪除 |>~，英文就將 | 轉做空格
+      pidsTc: (rawTc !== undefined ? String(rawTc).replace(/[>~|]/g, '') : "").trim(),
+      pidsEn: (rawEn !== undefined ? String(rawEn).replace(/[>~]/g, '').replace(/\|/g, ' ') : "").replace(/\s+/g, ' ').trim()
     };
 
     if (i === 0) {
@@ -485,7 +488,11 @@ function buildRouteData(routeKey, boundKey, typeKey) {
       let baseStopId = startIdRaw.length >= 10 ? startIdRaw.substring(0, 10) : startIdRaw;
       if (baseStopId) {
           const startDbObj = getStopsAudioData(baseStopId);
-          if (startDbObj.tc) { itemData.pidsTc = startDbObj.tc; itemData.pidsEn = startDbObj.en; }
+          if (startDbObj.tc) {
+              // ★ 第 0 站首發站都要過濾埋
+              itemData.pidsTc = startDbObj.tc.replace(/[>~|]/g, '');
+              itemData.pidsEn = startDbObj.en.replace(/[>~]/g, '').replace(/\|/g, ' ').replace(/\s+/g, ' ').trim();
+          }
       }
     }
 
