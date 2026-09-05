@@ -789,7 +789,7 @@ function getCharBitsFromTextMap(char, isDoubleLine = false, isEnglish = false) {
    遙控器小屏幕渲染引擎
    ========================================= */
 const remoteCanvas = document.getElementById('remoteCanvas'); const remoteCtx = remoteCanvas.getContext('2d');
-function setupHDCanvas() { remoteCanvas.width = 112; remoteCanvas.height = 156; remoteCtx.resetTransform(); }
+function setupHDCanvas() { remoteCanvas.width = 120; remoteCanvas.height = 156; remoteCtx.resetTransform(); }
 
 function drawRemoteScreen(linesData) {
   setupHDCanvas(); remoteCtx.fillStyle = "#050500"; remoteCtx.fillRect(0, 0, remoteCanvas.width, remoteCanvas.height); let currentY = 2;
