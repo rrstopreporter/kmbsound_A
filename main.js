@@ -669,7 +669,6 @@ function animateScrollIn(pageObj, isEnglish = false, token) {
         drawDirectLedGrid(mx8, mx6, 0, 0);
         setTimeout(() => {
             if (isPowerOn && (token === undefined || token === currentSequenceToken)) {
-                // ★ 加強防錯，確保正確 call 到對應排版
                 if (pidsMode === '24') {
                     if (typeof renderPidsLowerArea === 'function') renderPidsLowerArea(pageObj.t8, isEng8);
                 } else {
@@ -695,7 +694,6 @@ function animateScrollIn(pageObj, isEnglish = false, token) {
         currentText8 = processText8; currentText6 = processText6; currentIsEng8 = isEng8; currentIsEng6 = isEng6;
         setTimeout(() => {
             if (isPowerOn && (token === undefined || token === currentSequenceToken)) {
-                // ★ 加強防錯，確保正確 call 到對應排版
                 if (pidsMode === '24') {
                     if (typeof renderPidsLowerArea === 'function') renderPidsLowerArea(pageObj.t8, isEng8);
                 } else {
@@ -799,7 +797,7 @@ function drawRemoteScreen(linesData) {
     const text = item.text || ""; const inverted = item.inverted || false; const align = item.align || "left";
     const baseBgColor = item.bgColor || null; const baseTextColor = item.textColor || "#ffeb3b";
     let textW = 0;
-    for (let i = 0; i < text.length; i++) { textW += (getCharBitsFromTextMap(text[i], false, false).width || 16) + 1; }
+    for (let i = 0; i < text.length; i++) { textW += (getCharBitsFromTextMap(text[i], false, false).width || 16) + 0; }
     if (textW > 0) textW -= 1;
 
     let currentX = 2; if (align === "center") currentX = Math.floor((remoteCanvas.width - textW) / 2);
@@ -816,7 +814,7 @@ function drawRemoteScreen(linesData) {
               if (rowStr[c] === '1') { remoteCtx.fillStyle = inverted ? "#ffffff" : baseTextColor; remoteCtx.fillRect(currentX + c, currentY + r, 1, 1); }
           }
       }
-      currentX += glyphWidth + 1;
+      currentX += glyphWidth + 0;
     }
     currentY += 17;
   });
@@ -865,19 +863,19 @@ function getRemoteLinesData() {
   }
 
   const attStr = formatAttenNum(attenCodeNum); const attenData = getStopsAudioData(`ATTEN10${attStr}0`);
-  const line7 = ` 通告:${attStr}`; let line8 = "", line9 = "";
-  if (attenData && attenData.tc) { const pgs = getDualPages(attenData.tc, false, true); line8 = pgs.length > 0 ? pgs[0].t8 : ""; line9 = pgs.length > 1 ? pgs[1].t8 : ""; }
+  const line7 = `　通告:${attStr}`; let line8 = "", line9 = "";
+  if (attenData && attenData.tc) { const pgs = getDualPages(attenData.tc, false, true); line8 = pgs.length > 0 ? pgs[0].t8 : ""; line9 = pgs.length > 1 ? pgs[1].t8.substring(0, 5) : ""; }
 
   if (activeRouteObj && activeRouteObj.data && currentMode !== "STANDBY") {
     const stop = activeRouteObj.data[currentIndex];
     let cleanName = stop && stop.tc ? stop.tc.replace(/[>~|]/g, '') : "";
     let nameL1 = cleanName.length > 6 ? cleanName.substring(0, 6) : cleanName; let nameL2 = cleanName.length > 6 ? cleanName.substring(6) : "";
     return [
-        { text: ` 路:${currentRouteKey}` }, { text: activeRouteObj.dest }, { text: activeRouteObj.type },
+        { text: `　路:${currentRouteKey}` }, { text: activeRouteObj.dest }, { text: activeRouteObj.type.substring(0, 6) },
         { text: ` 下一站:${formatStopNum(currentIndex)}` }, { text: nameL1 }, { text: nameL2 }, { text: line7 }, { text: line8 }, { text: line9 }
     ];
   } else {
-    return [ { text: ` 路:` }, { text: "" }, { text: "" }, { text: ` 下一站:` }, { text: "" }, { text: "" }, { text: line7 }, { text: line8 }, { text: line9 } ];
+    return [ { text: `　路:` }, { text: "" }, { text: "" }, { text: ` 下一站:` }, { text: "" }, { text: "" }, { text: line7 }, { text: line8 }, { text: line9 } ];
   }
 }
 
@@ -935,12 +933,15 @@ function updateScreens() {
       if (currentMode === "BOOTING_1" || currentMode === "BOOTING_2") {
           if (currentMode === "BOOTING_1") { content.innerHTML = `<img src="${bootImg1.src}" style="position: absolute; left: 0; top: 0; width: 100%; height: 100%; object-fit: fill; z-index: 10; border-radius: 4px;" />`; }
           else { content.innerHTML = `<img src="${bootImg2.src}" style="position: absolute; left: 0; top: 0; width: 100%; height: 100%; object-fit: fill; z-index: 10; border-radius: 4px;" />`; }
-          drawRemoteScreen([ { text: "" }, { text: "(V2.0.5)", align: "center", bgColor: "#0000ff", textColor: "#ffffff" }, { text: "" }, { text: "Connecting", align: "left", textColor: "#ffeb3b" }, { text: "BSAS", align: "left", textColor: "#ffeb3b" } ]);
+          // ★ 完美還原真機排版，啟動 isEng: true 確保用到窄身字體
+          drawRemoteScreen([ { text: "" }, { text: "(V2.0.5)", align: "center", bgColor: "#0000ff", textColor: "#ffffff", isEng: true }, { text: "" }, { text: "Connecting BSAS", align: "center", textColor: "#ffeb3b", isEng: true } ]);
           if(verFooter) verFooter.style.display = "none"; updatePidsScreen(); return;
       }
 
       if (isLoading) {
-          content.innerHTML = ``; drawRemoteScreen([ { text: "" }, { text: "(V2.0.5)", align: "center", bgColor: "#0000ff", textColor: "#ffffff" }, { text: "" }, { text: "Connecting", align: "left", textColor: "#ffeb3b" }, { text: "BSAS", align: "left", textColor: "#ffeb3b" } ]);
+          content.innerHTML = ``;
+          // ★ 同步還原
+          drawRemoteScreen([ { text: "" }, { text: "(V2.0.5)", align: "center", bgColor: "#0000ff", textColor: "#ffffff", isEng: true }, { text: "" }, { text: "Connecting BSAS", align: "center", textColor: "#ffeb3b", isEng: true } ]);
           if(verFooter) verFooter.style.display = "none"; updatePidsScreen(); return;
       }
 
@@ -1045,10 +1046,10 @@ function updateScreens() {
       } else if (currentMode === "F2_SETTING_BRIGHT") {
           let pct = (settingBrightness / 4) * 100;
           content.innerHTML = `
-            <div style="width: 100%; height: 152px; position: relative; padding: 25px 4px; box-sizing: border-box; text-align: left;">
+            <div style="width: 100%; height: 152px; position: relative; padding: 25px 8px; box-sizing: border-box; text-align: left;">
                <div style="font-size: 20px;">顯示屏亮度設置</div>
                <div style="font-size: 14px; margin-top: 45px;">顯示屏亮度:${settingBrightness}</div>
-               <div style="position: absolute; bottom: 3px; left: 5px; right: 5px; height: 16px; border: 1px dotted #888; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center;">
+               <div style="position: absolute; bottom: 8px; left: 5px; right: 5px; height: 16px; border: 1px dotted #888; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center;">
                    <div style="width: 100%; height: 4px; border-left: 1px solid #111; border-right: 1px border-top: 1px solid #111; border-bottom: 1px solid #111; box-sizing: border-box;"></div>
                    <div style="position: absolute; left: ${pct}%; top: 50%; transform: translate(-50%, -50%); width: 14px; height: 18px; z-index: 2;">
                        <svg width="14" height="18" viewBox="0 0 14 18" xmlns="http://www.w3.org/2000/svg">
@@ -1062,10 +1063,10 @@ function updateScreens() {
       } else if (currentMode === "F2_SETTING_VOL") {
           let pct = (settingVolume / 8) * 100;
           content.innerHTML = `
-            <div style="width: 100%; height: 152px; position: relative; padding: 20px 4px; box-sizing: border-box; text-align: left;">
+            <div style="width: 100%; height: 152px; position: relative; padding: 20px 8px; box-sizing: border-box; text-align: left;">
                <div style="font-size: 20px;">系統音量設置</div>
                <div style="font-size: 14px; margin-top: 45px;">當前音量:${settingVolume}</div>
-               <div style="position: absolute; bottom: 3px; left: 5px; right: 5px; height: 16px; border: 1px dotted #888; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center;">
+               <div style="position: absolute; bottom: 8px; left: 5px; right: 5px; height: 16px; border: 1px dotted #888; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center;">
                    <div style="width: 100%; height: 4px; border-left: 1px solid #111; border-right: 1px solid #111; border-top: 1px solid #111; border-bottom: 1px solid #111; box-sizing: border-box;"></div>
                    <div style="position: absolute; left: ${pct}%; top: 50%; transform: translate(-50%, -50%); width: 14px; height: 18px; z-index: 2;">
                        <svg width="14" height="18" viewBox="0 0 14 18" xmlns="http://www.w3.org/2000/svg">
@@ -1079,10 +1080,10 @@ function updateScreens() {
       } else if (currentMode === "F2_SETTING_ACCURACY") {
           let pct = (settingAccuracy / 5) * 100;
           content.innerHTML = `
-            <div style="width: 100%; height: 152px; position: relative; padding: 20px 4px; box-sizing: border-box; text-align: left;">
+            <div style="width: 100%; height: 152px; position: relative; padding: 20px 8px; box-sizing: border-box; text-align: left;">
                <div style="font-size: 20px;">系統精度設定</div>
                <div style="font-size: 14px; margin-top: 45px;">當前精度:${settingAccuracy}</div>
-               <div style="position: absolute; bottom: 3px; left: 5px; right: 5px; height: 16px; border: 1px dotted #888; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center;">
+               <div style="position: absolute; bottom: 8px; left: 5px; right: 5px; height: 16px; border: 1px dotted #888; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center;">
                    <div style="width: 100%; height: 4px; border-left: 1px solid #111; border-right: 1px border-top: 1px solid #111; border-bottom: 1px solid #111; box-sizing: border-box;"></div>
                    <div style="position: absolute; left: ${pct}%; top: 50%; transform: translate(-50%, -50%); width: 14px; height: 18px; z-index: 2;">
                        <svg width="14" height="18" viewBox="0 0 14 18" xmlns="http://www.w3.org/2000/svg">
@@ -1406,7 +1407,7 @@ function handleDirection(dir) {
     else if (currentMode === "SELECT_TYPE") { selectedTypeIndex = (selectedTypeIndex + val + typesList.length) % typesList.length; updateScreens(); }
 
     else if (currentMode === "F2_MENU") {
-        if (dir === 'UP' && f2MenuIndex !== 0 && f2MenuIndex !== 5ok) f2MenuIndex--;
+        if (dir === 'UP' && f2MenuIndex !== 0 && f2MenuIndex !== 5) f2MenuIndex--;
         else if (dir === 'DOWN' && f2MenuIndex !== 4 && f2MenuIndex !== 9) f2MenuIndex++;
         else if (dir === 'LEFT' && f2MenuIndex >= 5) f2MenuIndex -= 5;
         else if (dir === 'RIGHT' && f2MenuIndex < 5) f2MenuIndex += 5;
@@ -1917,7 +1918,6 @@ window.onload = async () => {
         if (t.includes('→')) btn.onclick = (e) => { e.preventDefault(); handleDirection('RIGHT'); };
     });
 
-    // ★ 核心修復：強制 PIDS 引擎一開機就預設載入 24 吋標準模式
     setTimeout(() => {
         if (typeof switchPidsMode === 'function') {
             switchPidsMode('24');
