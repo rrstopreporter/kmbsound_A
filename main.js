@@ -86,6 +86,7 @@ let showRouteNotFound = false;
 let passwordInput = "";
 let serialPasswordInput = "";
 let f2MenuIndex = 0;
+let f2Mode = "NONE";
 
 let pidsMode = '24';
 let isRestoringMemory = false;
@@ -221,9 +222,11 @@ document.addEventListener('keydown', function(event) {
   const isRemoteStop = event.code === 'Numpad3';
   const isPanelDown = event.key === 'ArrowDown';
   const isPanelF1 = event.key === 'F1';
+  const isPanelF2 = event.key === 'F2'; // ★ 允許報站時撳 F2
 
-  if (currentMode === "RUNNING" && isActivelyAnnouncing) {
-    if (!isRemoteStop && !isPanelDown && !isPanelF1) {
+  // ★ 報站期間防亂撳 (容許遙控停止、F1、F2、下掣)
+  if (activeRouteObj && isActivelyAnnouncing) {
+    if (!isRemoteStop && !isPanelDown && !isPanelF1 && !isPanelF2) {
       event.preventDefault();
       return;
     }
@@ -244,10 +247,6 @@ document.addEventListener('keydown', function(event) {
   if (isSub) return adjustAttenCode(-1);
   if (isMul) return adjustAttenCode(10);
   if (isDiv) { event.preventDefault(); return adjustAttenCode(-10); }
-
-  if (currentMode === "F2_PASSWORD" && event.code.startsWith('Numpad') && /^[0-9]$/.test(event.key)) {
-    event.preventDefault(); return pressMultiTap(event.key);
-  }
 
   if (event.code === 'Numpad8') { event.preventDefault(); if (menuMode !== "NONE") pressMenuUp(); else pressSkip(1); return; }
   if (event.code === 'Numpad5') { event.preventDefault(); if (menuMode !== "NONE") pressMenuDown(); else pressSkip(-1); return; }
@@ -896,14 +895,14 @@ function buildRadioList(list, selectedIdx) {
    主畫面更新邏輯 (UI 介面)
    ========================================= */
 function triggerF2Loading(text, returnMode) {
-    currentMode = "F2_LOADING";
+    f2Mode = "F2_LOADING";
     f2LoadingText = text;
     f2ReturnMode = returnMode;
     updateScreens();
     if (f2LoadingTimer) clearTimeout(f2LoadingTimer);
     f2LoadingTimer = setTimeout(() => {
         if (!isPowerOn) return;
-        currentMode = f2ReturnMode;
+        f2Mode = f2ReturnMode;
         updateScreens();
     }, 2000);
 }
@@ -930,274 +929,98 @@ function updateScreens() {
       if(pwrSwitch) { pwrSwitch.classList.remove("off"); pwrSwitch.classList.add("on"); }
       if(sdLed) { (routeKeysList.length > 0 && !isLoading) ? sdLed.classList.add("on") : sdLed.classList.remove("on"); }
 
+      // ★ 遙控器永遠獨立顯示
+      if (currentMode === "BOOTING_1" || currentMode === "BOOTING_2" || isLoading) {
+          drawRemoteScreen([ { text: "" }, { text: "(V2.0.5)", align: "center", bgColor: "#0000ff", textColor: "#ffffff", isEng: true }, { text: "" }, { text: "Connecting BSAS", align: "center", textColor: "#ffeb3b", isEng: true } ]);
+      } else {
+          drawRemoteScreen(getRemoteLinesData());
+      }
+
       if (currentMode === "BOOTING_1" || currentMode === "BOOTING_2") {
           if (currentMode === "BOOTING_1") { content.innerHTML = `<img src="${bootImg1.src}" style="position: absolute; left: 0; top: 0; width: 100%; height: 100%; object-fit: fill; z-index: 10; border-radius: 4px;" />`; }
           else { content.innerHTML = `<img src="${bootImg2.src}" style="position: absolute; left: 0; top: 0; width: 100%; height: 100%; object-fit: fill; z-index: 10; border-radius: 4px;" />`; }
-          // ★ 完美還原真機排版，啟動 isEng: true 確保用到窄身字體
-          drawRemoteScreen([ { text: "" }, { text: "(V2.0.5)", align: "center", bgColor: "#0000ff", textColor: "#ffffff", isEng: true }, { text: "" }, { text: "Connecting BSAS", align: "center", textColor: "#ffeb3b", isEng: true } ]);
           if(verFooter) verFooter.style.display = "none"; updatePidsScreen(); return;
       }
 
       if (isLoading) {
           content.innerHTML = ``;
-          // ★ 同步還原
-          drawRemoteScreen([ { text: "" }, { text: "(V2.0.5)", align: "center", bgColor: "#0000ff", textColor: "#ffffff", isEng: true }, { text: "" }, { text: "Connecting BSAS", align: "center", textColor: "#ffeb3b", isEng: true } ]);
           if(verFooter) verFooter.style.display = "none"; updatePidsScreen(); return;
       }
 
-      if (currentMode === "STANDBY" || currentMode === "RUNNING") {
+      if (f2Mode === "NONE" && (currentMode === "STANDBY" || currentMode === "RUNNING")) {
           if(verFooter) verFooter.style.display = "block"; if(dbInitMsg) dbInitMsg.style.display = (currentMode === "STANDBY") ? "block" : "none";
       } else { if(verFooter) verFooter.style.display = "none"; }
 
-      if (currentMode === "STANDBY") {
-        content.innerHTML = `<div class="screen-line">路線:</div><div class="screen-line">開往:</div><div class="screen-line">屬性:</div><div class="screen-line">下一站:</div><div class="screen-line"></div>`;
-        drawRemoteScreen(getRemoteLinesData());
-      } else if (currentMode === "SELECT_ROUTE") {
-        let q = getDisplaySearchString(); let listHtml = '';
-        if (showRouteNotFound) { listHtml = `<div class="route-ui-list"><div class="route-ui-item" style="color:#d32f2f;">線路不存在</div></div>`; }
-        else {
-          let lHtml = '';
-          if (isNoMatch && q !== "") { lHtml = `<div class="route-ui-item">${q}</div>`; }
-          else { const st = selectedRouteIndex; const ed = Math.min(filteredRouteKeysList.length, st + 5); for (let i = st; i < ed; i++) { lHtml += `<div class="route-ui-item" style="padding: 0 4px;">${filteredRouteKeysList[i]}</div>`; } }
-          listHtml = `<div class="route-ui-list">${lHtml}</div>`;
-        }
-        content.innerHTML = `<div class="route-ui-container"><div class="route-ui-title">輸入路線編號</div><div class="route-ui-input">${q}</div>${listHtml}</div>`;
-        drawRemoteScreen(getRemoteLinesData());
-      } else if (currentMode === "SELECT_BOUND") {
-        content.innerHTML = `<fieldset class="route-ui-fieldset" style="height: 148px; box-sizing: border-box; margin: 0;"><legend class="route-ui-legend">選擇行車方向</legend>${buildRadioList(boundsList, selectedBoundIndex)}</fieldset>`;
-        drawRemoteScreen(getRemoteLinesData());
-      } else if (currentMode === "SELECT_TYPE") {
-        content.innerHTML = `<fieldset class="route-ui-fieldset" style="height: 148px; box-sizing: border-box; margin: 0;"><legend class="route-ui-legend">選擇服務類別</legend>${buildRadioList(typesList, selectedTypeIndex)}</fieldset>`;
-        drawRemoteScreen(getRemoteLinesData());
-      } else if (currentMode === "RUNNING" || menuMode === "DIR_MENU") {
-        const stop = (activeRouteObj && activeRouteObj.data) ? activeRouteObj.data[currentIndex] : null;
-
-        let cleanName = stop && stop.tc ? stop.tc.replace(/[>~|]/g, '') : "";
-        const destText = activeRouteObj ? activeRouteObj.dest : "";
-        const typeText = activeRouteObj ? activeRouteObj.type : "";
-
-        content.innerHTML = `<div class="screen-line">路線: ${currentRouteKey}</div><div class="screen-line">開往: ${destText}</div><div class="screen-line">屬性: ${typeText}</div><div class="screen-line">下一站:  ${formatStopNum(currentIndex)}</div><div class="screen-line stop-name">${cleanName}</div>`;
-        drawRemoteScreen(getRemoteLinesData());
-      } else if (currentMode === "F2_PASSWORD") {
-        const displayPwd = "●".repeat(passwordInput.length);
-        content.innerHTML = `
-            <div style="display: flex; flex-direction: column; height: 148px;">
-                <div style="flex-grow: 1; display: flex; justify-content: flex-start; align-items: center; padding-left: 8px; font-size: 18px; font-weight: bold; letter-spacing: 2px; margin-top: -15px;">
-                    請輸入密碼
-                </div>
-                <div style="background-color: #ffffff; border: 2px solid #111; height: 26px; width: 100%; box-sizing: border-box; display: flex; align-items: center; padding: 0 6px; font-size: 14px; color: #111; letter-spacing: 4px; flex-shrink: 0;">
-                    ${displayPwd}
-                </div>
-            </div>`;
-        drawRemoteScreen(getRemoteLinesData());
-
-      } else if (currentMode === "F2_MENU") {
-        let f2MenuHtml = '';
-        for (let i = 0; i < f2MenuItems.length; i++) {
-            const isSel = (i === f2MenuIndex);
-            const activeClass = isSel ? ' selected' : '';
-            const circle = isSel ? `<span class="radio-circle" style="font-size: 12px;">◉</span>` : `<span class="radio-circle" style="font-size: 10px;">○</span>`;
-            f2MenuHtml += `<div class="route-ui-radio-item${activeClass}" style="width: 100%;">${circle} <span class="radio-text">${f2MenuItems[i]}</span></div>`;
-        }
-        content.innerHTML = `<fieldset class="route-ui-fieldset" style="margin: 0; height: 148px; box-sizing: border-box;"><legend class="route-ui-legend">功能</legend><div style="position: absolute; top: 11px; bottom: 6px; left: 4px; right: 4px; display: grid; grid-template-columns: 85px 1fr; grid-template-rows: repeat(5, 1fr); grid-auto-flow: column; align-items: center;">${f2MenuHtml}</div></fieldset>`;
-        drawRemoteScreen(getRemoteLinesData());
-
-      } else if (currentMode.startsWith("F2_MENU_")) {
-          let html = '';
-          let displayCount = f2SubMenuList.length;
-          let rowGap = '2px';
-          if (displayCount === 2) rowGap = '23px';
-          else if (displayCount === 3) rowGap = '14px';
-          else if (displayCount === 4) rowGap = '10px';
-
-          for (let i = 0; i < f2SubMenuList.length; i++) {
-              const isSel = (i === f2SubMenuIndex);
-              const activeClass = isSel ? ' selected' : '';
-              const circle = isSel ? `<span class="radio-circle" style="font-size: 12px;">◉</span>` : `<span class="radio-circle" style="font-size: 10px;">○</span>`;
-              html += `<div class="route-ui-radio-item${activeClass}">${circle} <span class="radio-text">${f2SubMenuList[i]}</span></div>`;
-          }
-          content.innerHTML = `<fieldset class="route-ui-fieldset" style="margin: 0; height: 148px; box-sizing: border-box;"><legend class="route-ui-legend">${f2SubMenuTitle}</legend><div style="position: absolute; top: 11px; bottom: 6px; left: 2px; right: 4px; display: flex; flex-direction: column; justify-content: center; gap: ${rowGap}; padding-left: 2px;">${html}</div></fieldset>`;
-          drawRemoteScreen(getRemoteLinesData());
-
-      } else if (currentMode === "F2_LOADING") {
-          content.innerHTML = `
-            <style>
-              @keyframes f2Bounce {
-                0% { left: 65%; }
-                50% { left: 5%; }
-                100% { left: 65%; }
+      // ★ 核心：主機屏幕優先顯示 F2 模式
+      if (f2Mode !== "NONE") {
+          if (f2Mode === "F2_PASSWORD") {
+              const displayPwd = "●".repeat(passwordInput.length);
+              content.innerHTML = `<div style="display: flex; flex-direction: column; height: 148px;"><div style="flex-grow: 1; display: flex; justify-content: flex-start; align-items: center; padding-left: 8px; font-size: 18px; font-weight: bold; margin-top: -5px;">請輸入密碼</div><div style="background-color: #ffffff; border: 2px solid #111; height: 26px; width: 100%; box-sizing: border-box; display: flex; align-items: center; padding: 0 2px; font-size: 14px; color: #111; letter-spacing: 4px; flex-shrink: 0;">${displayPwd}</div></div>`;
+          } else if (f2Mode === "F2_MENU") {
+              let f2MenuHtml = '';
+              for (let i = 0; i < f2MenuItems.length; i++) {
+                  const isSel = (i === f2MenuIndex); const activeClass = isSel ? ' selected' : ''; const circle = isSel ? `<span class="radio-circle" style="font-size: 12px;">◉</span>` : `<span class="radio-circle" style="font-size: 10px;">○</span>`;
+                  f2MenuHtml += `<div class="route-ui-radio-item${activeClass}" style="width: 100%;">${circle} <span class="radio-text">${f2MenuItems[i]}</span></div>`;
               }
-            </style>
-            <div style="width: 100%; height: 152px; display: flex; flex-direction: column; padding: 2px; box-sizing: border-box; gap: 5px;">
-                <div style="flex-grow: 1; background: #fff; border: 2px solid #222; padding: 4px 4px; box-sizing: border-box;">
-                    <div style="font-size: 16px; font-weight: bold; line-height: 1.1; letter-spacing: -0.6px;">${f2LoadingText}</div>
-                </div>
-                <div style="height: 22px; background: #fff; border: 2px solid #222; box-sizing: border-box; padding: 5px; position: relative; overflow: hidden; flex-shrink: 0;">
-                    <div style="width: 30%; height: 100%; background: #0055ff; position: absolute; top: 0; animation: f2Bounce 1s ease-in-out infinite;"></div>
-                </div>
-            </div>`;
-
-          if (activeRouteObj) {
-              drawRemoteScreen(getRemoteLinesData());
-          } else {
-              drawRemoteScreen([{ text: "" }, { text: "處理中...", align: "center", bgColor: "#0000ff", textColor: "#fff" }, { text: "" }]);
+              content.innerHTML = `<fieldset class="route-ui-fieldset" style="margin: 0; height: 148px; box-sizing: border-box;"><legend class="route-ui-legend">功能</legend><div style="position: absolute; top: 11px; bottom: 6px; left: 4px; right: 4px; display: grid; grid-template-columns: 85px 1fr; grid-template-rows: repeat(5, 1fr); grid-auto-flow: column; align-items: center;">${f2MenuHtml}</div></fieldset>`;
+          } else if (f2Mode.startsWith("F2_MENU_")) {
+              let html = ''; let displayCount = f2SubMenuList.length; let rowGap = '2px';
+              if (displayCount === 2) rowGap = '23px'; else if (displayCount === 3) rowGap = '14px'; else if (displayCount === 4) rowGap = '10px';
+              for (let i = 0; i < f2SubMenuList.length; i++) {
+                  const isSel = (i === f2SubMenuIndex); const activeClass = isSel ? ' selected' : ''; const circle = isSel ? `<span class="radio-circle" style="font-size: 12px;">◉</span>` : `<span class="radio-circle" style="font-size: 10px;">○</span>`;
+                  html += `<div class="route-ui-radio-item${activeClass}">${circle} <span class="radio-text">${f2SubMenuList[i]}</span></div>`;
+              }
+              content.innerHTML = `<fieldset class="route-ui-fieldset" style="margin: 0; height: 148px; box-sizing: border-box;"><legend class="route-ui-legend">${f2SubMenuTitle}</legend><div style="position: absolute; top: 11px; bottom: 6px; left: 2px; right: 4px; display: flex; flex-direction: column; justify-content: center; gap: ${rowGap}; padding-left: 2px;">${html}</div></fieldset>`;
+          } else if (f2Mode === "F2_LOADING") {
+              content.innerHTML = `<style>@keyframes f2Bounce { 0% { left: 65%; } 50% { left: 5%; } 100% { left: 65%; } }</style><div style="width: 100%; height: 152px; display: flex; flex-direction: column; padding: 2px; box-sizing: border-box; gap: 5px;"><div style="flex-grow: 1; background: #fff; border: 2px solid #222; padding: 4px 4px; box-sizing: border-box;"><div style="font-size: 16px; font-weight: bold; line-height: 1.1; letter-spacing: -0.6px;">${f2LoadingText}</div></div><div style="height: 22px; background: #fff; border: 2px solid #222; box-sizing: border-box; padding: 5px; position: relative; overflow: hidden; flex-shrink: 0;"><div style="width: 30%; height: 100%; background: #0055ff; position: absolute; top: 0; animation: f2Bounce 1s ease-in-out infinite;"></div></div></div>`;
+          } else if (f2Mode === "F2_SETTING_BRIGHT") {
+              let pct = (settingBrightness / 4) * 100;
+              content.innerHTML = `<div style="width: 100%; height: 152px; position: relative; padding: 25px 8px; box-sizing: border-box; text-align: left;"><div style="font-size: 20px;">顯示屏亮度設置</div><div style="font-size: 14px; margin-top: 45px;">顯示屏亮度:${settingBrightness}</div><div style="position: absolute; bottom: 8px; left: 5px; right: 5px; height: 16px; border: 1px dotted #888; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center;"><div style="width: 100%; height: 4px; border-left: 1px solid #111; border-right: 1px border-top: 1px solid #111; border-bottom: 1px solid #111; box-sizing: border-box;"></div><div style="position: absolute; left: ${pct}%; top: 50%; transform: translate(-50%, -50%); width: 14px; height: 18px; z-index: 2;"><svg width="14" height="18" viewBox="0 0 14 18" xmlns="http://www.w3.org/2000/svg"><polygon points="1.5,1.5 12.5,1.5 12.5,11 7,16.5 1.5,11" fill="#00A2E8" stroke="#111" stroke-width="1.5" stroke-linejoin="round"/></svg></div></div></div>`;
+          } else if (f2Mode === "F2_SETTING_VOL") {
+              let pct = (settingVolume / 8) * 100;
+              content.innerHTML = `<div style="width: 100%; height: 152px; position: relative; padding: 20px 8px; box-sizing: border-box; text-align: left;"><div style="font-size: 20px;">系統音量設置</div><div style="font-size: 14px; margin-top: 45px;">當前音量:${settingVolume}</div><div style="position: absolute; bottom: 8px; left: 5px; right: 5px; height: 16px; border: 1px dotted #888; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center;"><div style="width: 100%; height: 4px; border-left: 1px solid #111; border-right: 1px solid #111; border-top: 1px solid #111; border-bottom: 1px solid #111; box-sizing: border-box;"></div><div style="position: absolute; left: ${pct}%; top: 50%; transform: translate(-50%, -50%); width: 14px; height: 18px; z-index: 2;"><svg width="14" height="18" viewBox="0 0 14 18" xmlns="http://www.w3.org/2000/svg"><polygon points="1.5,1.5 12.5,1.5 12.5,11 7,16.5 1.5,11" fill="#00A2E8" stroke="#111" stroke-width="1.5" stroke-linejoin="round"/></svg></div></div></div>`;
+          } else if (f2Mode === "F2_SETTING_ACCURACY") {
+              let pct = (settingAccuracy / 5) * 100;
+              content.innerHTML = `<div style="width: 100%; height: 152px; position: relative; padding: 20px 8px; box-sizing: border-box; text-align: left;"><div style="font-size: 20px;">系統精度設定</div><div style="font-size: 14px; margin-top: 45px;">當前精度:${settingAccuracy}</div><div style="position: absolute; bottom: 8px; left: 5px; right: 5px; height: 16px; border: 1px dotted #888; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center;"><div style="width: 100%; height: 4px; border-left: 1px solid #111; border-right: 1px border-top: 1px solid #111; border-bottom: 1px solid #111; box-sizing: border-box;"></div><div style="position: absolute; left: ${pct}%; top: 50%; transform: translate(-50%, -50%); width: 14px; height: 18px; z-index: 2;"><svg width="14" height="18" viewBox="0 0 14 18" xmlns="http://www.w3.org/2000/svg"><polygon points="1.5,1.5 12.5,1.5 12.5,11 7,16.5 1.5,11" fill="#00A2E8" stroke="#111" stroke-width="1.5" stroke-linejoin="round"/></svg></div></div></div>`;
+          } else if (f2Mode === "F2_INFO_VER") {
+              content.innerHTML = `<fieldset class="route-ui-fieldset" style="margin: 0; height: 148px; box-sizing: border-box; padding: 2px 6px;"><legend class="route-ui-legend" style="font-size: 18px; font-weight: bold; margin-left: 2px; padding: 0 4px; color: #111;">本機屬性</legend><div style="font-size: 11px; line-height: 1.7; letter-spacing: -1px; margin-top: 2px; white-space: nowrap;"><div>機器序列號: 00000000000000000000000</div><div style="display: grid; grid-template-columns: 100px 1fr; margin-top: 0px;"><div>數據庫起始版本:</div><div>20260512_v1</div><div>數據庫版本:</div><div>20260512_v1</div><div>Schema:</div><div>20140220</div><div>本機IP地址:</div><div>192.168.1.2</div><div>FTP服務器地址:</div><div>ftp://192.168.1.1/</div></div></div></fieldset>`;
+          } else if (f2Mode === "F2_SAMPLING") {
+              const stop = activeRouteObj && activeRouteObj.data ? activeRouteObj.data[currentIndex] : null;
+              let routeText = currentRouteKey || "---"; let destText = activeRouteObj ? activeRouteObj.dest : "---"; let stopName = stop && stop.tc ? stop.tc.replace(/[>~|]/g, '') : "歡迎乘坐九龍巴士"; let stopId = stop && stop.stopId ? stop.stopId : "---"; let seq = stop ? stop.seq : "0"; let cx = stop && stop.x ? stop.x : "0000.0000"; let cy = stop && stop.y ? stop.y : "0000.00000";
+              content.innerHTML = `<fieldset class="route-ui-fieldset" style="margin: 0; height: 148px; box-sizing: border-box; padding: 2px 4px; border: 1px solid #111;"><legend class="route-ui-legend" style="font-size: 16px; margin-left: 8px; padding: 0 4px; color: #111;">座標採樣</legend><div style="font-size: 12px; line-height: 1.2; letter-spacing: -0.5px;"><div style="display: grid; grid-template-columns: 65px 1fr;"><div>路線:${routeText}</div><div>開往:${destText}</div><div>${seq}</div><div> ${stopName}</div><div>代碼:</div><div> ${stopId}</div></div><div style="display: flex; justify-content: space-between; margin-top: 6px; padding: 0 4px;"><fieldset style="width: 44%; border: 1px solid #111; padding: 2px 4px; height: 70px; margin:0; box-sizing: border-box;"><legend style="font-size: 12px; margin-left: 4px; padding: 0 2px;">站點座標</legend><div style="font-size: 12px; line-height: 1.1; margin-top: -2px;"><div>${cx}</div><div>${cy}</div><div>11.0</div><div>301</div></div></fieldset><fieldset style="width: 40%; border: 1px solid #111; padding: 2px 4px; height: 70px; margin:0; box-sizing: border-box;"><legend style="font-size: 12px; margin-left: 4px; padding: 0 2px;">即時座標</legend><div style="font-size: 12px; line-height: 1.1;"></div></fieldset></div></div></fieldset>`;
+          } else if (f2Mode === "F2_SET_SERIAL_PWD" || f2Mode === "F2_SET_SERIAL_ERR") {
+              const displayPwd = "●".repeat(serialPasswordInput.length); let dialogHtml = "";
+              if (f2Mode === "F2_SET_SERIAL_ERR") { dialogHtml = `<div style="position: absolute; top: 12%; left: 50%; transform: translateX(-50%); width: 170px; background: #d4d0c8; border-top: 1px solid #fff; border-left: 1px solid #fff; border-right: 1px solid #404040; border-bottom: 1px solid #404040; box-shadow: 1px 1px 0px #000; z-index: 10;"><div style="background: #547BCE; height: 18px; display: flex; align-items: center; justify-content: space-between; padding: 0 2px; border-bottom: 1px solid #d4d0c8;"><div style="display: flex; align-items: center; gap: 4px;"><div style="width: 12px; height: 12px; background: #ffcc00; color: #111; font-weight: bold; font-size: 10px; display: flex; align-items: center; justify-content: center; border-radius: 2px;">K</div><span style="color: #fff; font-family: 'Tahoma', sans-serif; font-size: 11px; font-weight: bold; letter-spacing: 0px;">Password Erro</span></div><div style="width: 14px; height: 14px; background: #547BCE; border-top: 1px solid #8caee6; border-left: 1px solid #8caee6; border-right: 1px solid #2a4c95; border-bottom: 1px solid #2a4c95; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: bold; font-size: 10px; line-height: 1;">x</div></div><div style="padding: 12px 8px 8px 8px; display: flex; flex-direction: column; align-items: center; background: #fff;"><div style="display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%;"><div style="width: 22px; height: 22px; background: #fff; border-radius: 50%; border: 1.5px solid #666; display: flex; align-items: center; justify-content: center; font-family: 'Times New Roman', serif; font-size: 14px; font-style: italic; font-weight: bold; color: #547BCE; box-shadow: 1px 1px 0px rgba(0,0,0,0.2);">i</div><span style="font-family: '微軟正黑體', sans-serif; font-size: 13px; color: #555;">Please try again</span></div><div style="margin-top: 15px; width: 60px; height: 22px; display: flex; align-items: center; justify-content: center; border-top: 1px solid #fff; border-left: 1px solid #fff; border-right: 1px solid #404040; border-bottom: 1px solid #404040; background: #d4d0c8; color: #000; font-size: 12px; font-family: 'Tahoma', sans-serif; box-shadow: inset 1px 1px 0px #fff, inset -1px -1px 0px #808080; outline: 1px dotted #000; outline-offset: -3px;">OK</div></div></div>`; }
+              content.innerHTML = `<div style="display: flex; flex-direction: column; height: 152px; position: relative;"><div style="flex-grow: 1; display: flex; justify-content: flex-start; align-items: center; padding-left: 8px; font-size: 18px; font-weight: bold; margin-top: -5px;">請輸入密碼</div><div style="background-color: #ffffff; border: 2px solid #111; height: 26px; width: 100%; box-sizing: border-box; display: flex; align-items: center; padding: 0 2px; font-size: 14px; color: #111; letter-spacing: 4px; flex-shrink: 0;">${displayPwd}</div>${dialogHtml}</div>`;
+          } else if (f2Mode === "F2_BLANK") {
+              content.innerHTML = `<div style="width: 100%; height: 100%;"></div>`;
           }
-
-      } else if (currentMode === "F2_SETTING_BRIGHT") {
-          let pct = (settingBrightness / 4) * 100;
-          content.innerHTML = `
-            <div style="width: 100%; height: 152px; position: relative; padding: 25px 8px; box-sizing: border-box; text-align: left;">
-               <div style="font-size: 20px;">顯示屏亮度設置</div>
-               <div style="font-size: 14px; margin-top: 45px;">顯示屏亮度:${settingBrightness}</div>
-               <div style="position: absolute; bottom: 8px; left: 5px; right: 5px; height: 16px; border: 1px dotted #888; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center;">
-                   <div style="width: 100%; height: 4px; border-left: 1px solid #111; border-right: 1px border-top: 1px solid #111; border-bottom: 1px solid #111; box-sizing: border-box;"></div>
-                   <div style="position: absolute; left: ${pct}%; top: 50%; transform: translate(-50%, -50%); width: 14px; height: 18px; z-index: 2;">
-                       <svg width="14" height="18" viewBox="0 0 14 18" xmlns="http://www.w3.org/2000/svg">
-                           <polygon points="1.5,1.5 12.5,1.5 12.5,11 7,16.5 1.5,11" fill="#00A2E8" stroke="#111" stroke-width="1.5" stroke-linejoin="round"/>
-                       </svg>
-                   </div>
-               </div>
-            </div>`;
-          drawRemoteScreen(getRemoteLinesData());
-
-      } else if (currentMode === "F2_SETTING_VOL") {
-          let pct = (settingVolume / 8) * 100;
-          content.innerHTML = `
-            <div style="width: 100%; height: 152px; position: relative; padding: 20px 8px; box-sizing: border-box; text-align: left;">
-               <div style="font-size: 20px;">系統音量設置</div>
-               <div style="font-size: 14px; margin-top: 45px;">當前音量:${settingVolume}</div>
-               <div style="position: absolute; bottom: 8px; left: 5px; right: 5px; height: 16px; border: 1px dotted #888; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center;">
-                   <div style="width: 100%; height: 4px; border-left: 1px solid #111; border-right: 1px solid #111; border-top: 1px solid #111; border-bottom: 1px solid #111; box-sizing: border-box;"></div>
-                   <div style="position: absolute; left: ${pct}%; top: 50%; transform: translate(-50%, -50%); width: 14px; height: 18px; z-index: 2;">
-                       <svg width="14" height="18" viewBox="0 0 14 18" xmlns="http://www.w3.org/2000/svg">
-                           <polygon points="1.5,1.5 12.5,1.5 12.5,11 7,16.5 1.5,11" fill="#00A2E8" stroke="#111" stroke-width="1.5" stroke-linejoin="round"/>
-                       </svg>
-                   </div>
-               </div>
-            </div>`;
-          drawRemoteScreen(getRemoteLinesData());
-
-      } else if (currentMode === "F2_SETTING_ACCURACY") {
-          let pct = (settingAccuracy / 5) * 100;
-          content.innerHTML = `
-            <div style="width: 100%; height: 152px; position: relative; padding: 20px 8px; box-sizing: border-box; text-align: left;">
-               <div style="font-size: 20px;">系統精度設定</div>
-               <div style="font-size: 14px; margin-top: 45px;">當前精度:${settingAccuracy}</div>
-               <div style="position: absolute; bottom: 8px; left: 5px; right: 5px; height: 16px; border: 1px dotted #888; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center;">
-                   <div style="width: 100%; height: 4px; border-left: 1px solid #111; border-right: 1px border-top: 1px solid #111; border-bottom: 1px solid #111; box-sizing: border-box;"></div>
-                   <div style="position: absolute; left: ${pct}%; top: 50%; transform: translate(-50%, -50%); width: 14px; height: 18px; z-index: 2;">
-                       <svg width="14" height="18" viewBox="0 0 14 18" xmlns="http://www.w3.org/2000/svg">
-                           <polygon points="1.5,1.5 12.5,1.5 12.5,11 7,16.5 1.5,11" fill="#00A2E8" stroke="#111" stroke-width="1.5" stroke-linejoin="round"/>
-                       </svg>
-                   </div>
-               </div>
-            </div>`;
-          drawRemoteScreen(getRemoteLinesData());
-
-      } else if (currentMode === "F2_INFO_VER") {
-          content.innerHTML = `
-            <fieldset class="route-ui-fieldset" style="margin: 0; height: 148px; box-sizing: border-box; padding: 2px 6px;">
-                <legend class="route-ui-legend" style="font-size: 18px; font-weight: bold; margin-left: 2px; padding: 0 4px; color: #111;">本機屬性</legend>
-                <div style="font-size: 11px; line-height: 1.7; letter-spacing: -1px; margin-top: 2px; white-space: nowrap;">
-                    <div>機器序列號: 00000000000000000000000</div>
-                    <div style="display: grid; grid-template-columns: 100px 1fr; margin-top: 0px;">
-                        <div>數據庫起始版本:</div><div>20201209_v1</div>
-                        <div>數據庫版本:</div><div>20201209_v1</div>
-                        <div>Schema:</div><div>20140220</div>
-                        <div>本機IP地址:</div><div>192.168.1.2</div>
-                        <div>FTP服務器地址:</div><div>ftp://192.168.1.1/</div>
-                    </div>
-                </div>
-            </fieldset>`;
-          drawRemoteScreen(getRemoteLinesData());
-
-      } else if (currentMode === "F2_SAMPLING") {
-          const stop = activeRouteObj && activeRouteObj.data ? activeRouteObj.data[currentIndex] : null;
-          let routeText = currentRouteKey || "---";
-          let destText = activeRouteObj ? activeRouteObj.dest : "---";
-          let stopName = stop && stop.tc ? stop.tc.replace(/[>~|]/g, '') : "歡迎乘坐九龍巴士";
-          let stopId = stop && stop.stopId ? stop.stopId : "---";
-          let seq = stop ? stop.seq : "0";
-          let cx = stop && stop.x ? stop.x : "0000.0000";
-          let cy = stop && stop.y ? stop.y : "0000.00000";
-
-          content.innerHTML = `
-            <fieldset class="route-ui-fieldset" style="margin: 0; height: 148px; box-sizing: border-box; padding: 2px 4px; border: 1px solid #111;">
-                <legend class="route-ui-legend" style="font-size: 16px; margin-left: 8px; padding: 0 4px; color: #111;">座標採樣</legend>
-                <div style="font-size: 12px; line-height: 1.2; letter-spacing: -0.5px;">
-                    <div style="display: grid; grid-template-columns: 65px 1fr;">
-                        <div>路線:${routeText}</div>
-                        <div>開往:${destText}</div>
-                        <div>${seq}</div>
-                        <div> ${stopName}</div>
-                        <div>代碼:</div>
-                        <div> ${stopId}</div>
-                    </div>
-                    <div style="display: flex; justify-content: space-between; margin-top: 6px; padding: 0 4px;">
-                        <fieldset style="width: 44%; border: 1px solid #111; padding: 2px 4px; height: 70px; margin:0; box-sizing: border-box;">
-                            <legend style="font-size: 12px; margin-left: 4px; padding: 0 2px;">站點座標</legend>
-                            <div style="font-size: 12px; line-height: 1.1; margin-top: -2px;">
-                                <div>${cx}</div>
-                                <div>${cy}</div>
-                                <div>11.0</div>
-                                <div>301</div>
-                            </div>
-                        </fieldset>
-                        <fieldset style="width: 40%; border: 1px solid #111; padding: 2px 4px; height: 70px; margin:0; box-sizing: border-box;">
-                            <legend style="font-size: 12px; margin-left: 4px; padding: 0 2px;">即時座標</legend>
-                            <div style="font-size: 12px; line-height: 1.1;"></div>
-                        </fieldset>
-                    </div>
-                </div>
-            </fieldset>`;
-          drawRemoteScreen(getRemoteLinesData());
-
-      } else if (currentMode === "F2_SET_SERIAL_PWD" || currentMode === "F2_SET_SERIAL_ERR") {
-          const displayPwd = "●".repeat(serialPasswordInput.length);
-          let dialogHtml = "";
-
-          if (currentMode === "F2_SET_SERIAL_ERR") {
-              dialogHtml = `
-                <div style="position: absolute; top: 12%; left: 50%; transform: translateX(-50%); width: 170px; background: #d4d0c8; border-top: 1px solid #fff; border-left: 1px solid #fff; border-right: 1px solid #404040; border-bottom: 1px solid #404040; box-shadow: 1px 1px 0px #000; z-index: 10;">
-                    <div style="background: #547BCE; height: 18px; display: flex; align-items: center; justify-content: space-between; padding: 0 2px; border-bottom: 1px solid #d4d0c8;">
-                        <div style="display: flex; align-items: center; gap: 4px;">
-                            <div style="width: 12px; height: 12px; background: #ffcc00; color: #111; font-weight: bold; font-size: 10px; display: flex; align-items: center; justify-content: center; border-radius: 2px;">K</div>
-                            <span style="color: #fff; font-family: 'Tahoma', sans-serif; font-size: 11px; font-weight: bold; letter-spacing: 0px;">Password Erro</span>
-                        </div>
-                        <div style="width: 14px; height: 14px; background: #547BCE; border-top: 1px solid #8caee6; border-left: 1px solid #8caee6; border-right: 1px solid #2a4c95; border-bottom: 1px solid #2a4c95; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: bold; font-size: 10px; line-height: 1;">x</div>
-                    </div>
-                    <div style="padding: 12px 8px 8px 8px; display: flex; flex-direction: column; align-items: center; background: #fff;">
-                        <div style="display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%;">
-                            <div style="width: 22px; height: 22px; background: #fff; border-radius: 50%; border: 1.5px solid #666; display: flex; align-items: center; justify-content: center; font-family: 'Times New Roman', serif; font-size: 14px; font-style: italic; font-weight: bold; color: #547BCE; box-shadow: 1px 1px 0px rgba(0,0,0,0.2);">i</div>
-                            <span style="font-family: '微軟正黑體', sans-serif; font-size: 13px; color: #555;">Please try again</span>
-                        </div>
-                        <div style="margin-top: 15px; width: 60px; height: 22px; display: flex; align-items: center; justify-content: center; border-top: 1px solid #fff; border-left: 1px solid #fff; border-right: 1px solid #404040; border-bottom: 1px solid #404040; background: #d4d0c8; color: #000; font-size: 12px; font-family: 'Tahoma', sans-serif; box-shadow: inset 1px 1px 0px #fff, inset -1px -1px 0px #808080; outline: 1px dotted #000; outline-offset: -3px;">
-                            OK
-                        </div>
-                    </div>
-                </div>`;
+      }
+      // 否則顯示正常狀態
+      else {
+          if (currentMode === "STANDBY") {
+            content.innerHTML = `<div class="screen-line">路線:</div><div class="screen-line">開往:</div><div class="screen-line">屬性:</div><div class="screen-line">下一站:</div><div class="screen-line"></div>`;
+          } else if (currentMode === "SELECT_ROUTE") {
+            let q = getDisplaySearchString(); let listHtml = '';
+            if (showRouteNotFound) { listHtml = `<div class="route-ui-list"><div class="route-ui-item" style="color:#d32f2f;">線路不存在</div></div>`; }
+            else {
+              let lHtml = ''; if (isNoMatch && q !== "") { lHtml = `<div class="route-ui-item">${q}</div>`; } else { const st = selectedRouteIndex; const ed = Math.min(filteredRouteKeysList.length, st + 5); for (let i = st; i < ed; i++) { lHtml += `<div class="route-ui-item" style="padding: 0 4px;">${filteredRouteKeysList[i]}</div>`; } }
+              listHtml = `<div class="route-ui-list">${lHtml}</div>`;
+            }
+            content.innerHTML = `<div class="route-ui-container"><div class="route-ui-title">輸入路線編號</div><div class="route-ui-input">${q}</div>${listHtml}</div>`;
+          } else if (currentMode === "SELECT_BOUND") {
+            content.innerHTML = `<fieldset class="route-ui-fieldset" style="height: 148px; box-sizing: border-box; margin: 0;"><legend class="route-ui-legend">選擇行車方向</legend>${buildRadioList(boundsList, selectedBoundIndex)}</fieldset>`;
+          } else if (currentMode === "SELECT_TYPE") {
+            content.innerHTML = `<fieldset class="route-ui-fieldset" style="height: 148px; box-sizing: border-box; margin: 0;"><legend class="route-ui-legend">選擇服務類別</legend>${buildRadioList(typesList, selectedTypeIndex)}</fieldset>`;
+          } else if (currentMode === "RUNNING" || menuMode === "DIR_MENU") {
+            const stop = (activeRouteObj && activeRouteObj.data) ? activeRouteObj.data[currentIndex] : null; let cleanName = stop && stop.tc ? stop.tc.replace(/[>~|]/g, '') : ""; const destText = activeRouteObj ? activeRouteObj.dest : ""; const typeText = activeRouteObj ? activeRouteObj.type : "";
+            content.innerHTML = `<div class="screen-line">路線: ${currentRouteKey}</div><div class="screen-line">開往: ${destText}</div><div class="screen-line">屬性: ${typeText}</div><div class="screen-line">下一站:  ${formatStopNum(currentIndex)}</div><div class="screen-line stop-name">${cleanName}</div>`;
           }
-
-          content.innerHTML = `
-            <div style="display: flex; flex-direction: column; height: 152px; position: relative;">
-                <div style="flex-grow: 1; display: flex; justify-content: flex-start; align-items: center; padding-left: 8px; font-size: 18px; font-weight: bold; margin-top: -5px;">
-                    請輸入密碼
-                </div>
-                <div style="background-color: #ffffff; border: 2px solid #111; height: 26px; width: 100%; box-sizing: border-box; display: flex; align-items: center; padding: 0 2px; font-size: 14px; color: #111; letter-spacing: 4px; flex-shrink: 0;">
-                    ${displayPwd}
-                </div>
-                ${dialogHtml}
-            </div>`;
-          drawRemoteScreen(getRemoteLinesData());
-
-      } else if (currentMode === "F2_BLANK") {
-          content.innerHTML = `<div style="width: 100%; height: 100%;"></div>`;
-          drawRemoteScreen([{ text: "" }]);
       }
 
       const lockTargetBtns = document.querySelectorAll('.btn, .remote-btn');
-            lockTargetBtns.forEach(btn => {
-                btn.style.pointerEvents = isRestoringMemory ? 'none' : 'auto';
+      lockTargetBtns.forEach(btn => {
+          btn.style.pointerEvents = isRestoringMemory ? 'none' : 'auto';
       });
 
       updatePidsScreen();
@@ -1440,7 +1263,7 @@ function handleDirection(dir) {
 
 async function pressPassengerAtten() {
   if (!isPowerOn || isLoading || currentMode === "F2_LOADING" || currentMode.startsWith("BOOTING")) return;
-  if (currentMode === "RUNNING" && isActivelyAnnouncing) return;
+  if (activeRouteObj && isActivelyAnnouncing) return;
 
   const attStr = formatAttenNum(attenCodeNum); const attenObj = getStopsAudioData(`ATTEN10${attStr}0`);
   if (!attenObj.tc && !attenObj.audioTc) return;
@@ -1554,83 +1377,49 @@ async function togglePower() {
 }
 
 function pressF1() {
-  if (!isPowerOn || isLoading || currentMode === "F2_LOADING" || currentMode.startsWith("BOOTING")) return;
-  stopPidsTimers(); currentMode = "SELECT_ROUTE"; searchInput = ""; currentKeyDigit = null; lastSearchQuery = "";
+  if (!isPowerOn || isLoading || currentMode.startsWith("BOOTING")) return;
+  stopPidsTimers(); f2Mode = "NONE"; currentMode = "SELECT_ROUTE"; searchInput = ""; currentKeyDigit = null; lastSearchQuery = "";
   selectedRouteIndex = 0; attenCodeNum = 0; lastBeepedIndex = -1; isNoMatch = false; showRouteNotFound = false; listNavigated = false;
   updateFilteredRoutes(); updateScreens();
 }
 
 function pressF2() {
-    if (!isPowerOn || isLoading || currentMode === "F2_LOADING" || currentMode.startsWith("BOOTING")) return;
-    if (currentMode === "RUNNING" && isActivelyAnnouncing) return;
-    stopPidsTimers(); currentMode = "F2_PASSWORD"; passwordInput = ""; f2MenuIndex = 0; updateScreens();
+    if (!isPowerOn || isLoading || currentMode.startsWith("BOOTING")) return;
+    f2Mode = "F2_PASSWORD"; passwordInput = ""; f2MenuIndex = 0; updateScreens();
 }
 
 function pressF4() {
   if (!isPowerOn || isLoading || currentMode.startsWith("BOOTING")) return;
 
-  if (currentMode === "F2_LOADING") return;
-
-  if (currentMode === "F2_SETTING_BRIGHT" || currentMode === "F2_SETTING_VOL") {
-      currentMode = "F2_MENU_ATTR";
-      f2SubMenuTitle = "本機屬性";
-      f2SubMenuList = ["亮度", "音量"];
-      updateScreens();
-      return;
-  }
-
-  if (currentMode === "F2_MENU_ATTR" || currentMode === "F2_MENU_ADV" || currentMode === "F2_SETTING_ACCURACY" || currentMode === "F2_MENU_VER") {
-      currentMode = "F2_MENU";
-      updateScreens();
-      return;
-  }
-
-  if (currentMode === "F2_MENU_ADV_REMOTE" || currentMode === "F2_MENU_ADV_DISP") {
-      currentMode = "F2_MENU_ADV";
-      f2SubMenuTitle = "程序下載";
-      f2SubMenuList = ["主機", "線控器", "顯示屏"];
-      updateScreens();
-      return;
-  }
-
-  if (currentMode === "F2_INFO_VER") {
-      currentMode = "F2_MENU_VER";
-      f2SubMenuTitle = "版本序列號";
-      f2SubMenuList = ["讀取版本序列號", "設定序列號"];
-      updateScreens();
-      return;
-  }
-
-  if (currentMode === "F2_SAMPLING") {
-      currentMode = "F2_MENU";
-      updateScreens();
-      return;
-  }
-
-  if (currentMode === "F2_SET_SERIAL_PWD" || currentMode === "F2_SET_SERIAL_ERR") {
-      currentMode = "F2_MENU_VER";
-      f2SubMenuTitle = "版本序列號";
-      f2SubMenuList = ["讀取版本序列號", "設定序列號"];
-      serialPasswordInput = "";
-      updateScreens();
-      return;
-  }
-
-  if (currentMode === "F2_BLANK") {
-      currentMode = f2ReturnMode;
-      if (f2ReturnMode === "F2_MENU_VER") {
-          f2SubMenuTitle = "版本序列號";
-          f2SubMenuList = ["讀取版本序列號", "設定序列號"];
+  if (f2Mode !== "NONE") {
+      if (f2Mode === "F2_LOADING") return;
+      if (f2Mode === "F2_SETTING_BRIGHT" || f2Mode === "F2_SETTING_VOL") {
+          f2Mode = "F2_MENU_ATTR"; f2SubMenuTitle = "本機屬性"; f2SubMenuList = ["亮度", "音量"]; updateScreens(); return;
       }
-      updateScreens();
-      return;
+      if (f2Mode === "F2_MENU_ATTR" || f2Mode === "F2_MENU_ADV" || f2Mode === "F2_SETTING_ACCURACY" || f2Mode === "F2_MENU_VER") {
+          f2Mode = "F2_MENU"; updateScreens(); return;
+      }
+      if (f2Mode === "F2_MENU_ADV_REMOTE" || f2Mode === "F2_MENU_ADV_DISP") {
+          f2Mode = "F2_MENU_ADV"; f2SubMenuTitle = "程序下載"; f2SubMenuList = ["主機", "線控器", "顯示屏"]; updateScreens(); return;
+      }
+      if (f2Mode === "F2_INFO_VER") {
+          f2Mode = "F2_MENU_VER"; f2SubMenuTitle = "版本序列號"; f2SubMenuList = ["讀取版本序列號", "設定序列號"]; updateScreens(); return;
+      }
+      if (f2Mode === "F2_SAMPLING") {
+          f2Mode = "F2_MENU"; updateScreens(); return;
+      }
+      if (f2Mode === "F2_SET_SERIAL_PWD" || f2Mode === "F2_SET_SERIAL_ERR") {
+          f2Mode = "F2_MENU_VER"; f2SubMenuTitle = "版本序列號"; f2SubMenuList = ["讀取版本序列號", "設定序列號"]; serialPasswordInput = ""; updateScreens(); return;
+      }
+      if (f2Mode === "F2_BLANK") {
+          f2Mode = f2ReturnMode; if (f2ReturnMode === "F2_MENU_VER") { f2SubMenuTitle = "版本序列號"; f2SubMenuList = ["讀取版本序列號", "設定序列號"]; } updateScreens(); return;
+      }
+      if (f2Mode === "F2_PASSWORD" || f2Mode === "F2_MENU") {
+          f2Mode = "NONE"; updateScreens(); return;
+      }
   }
 
   if (menuMode !== "NONE") { menuMode = "NONE"; updateScreens(); return; }
-  if (currentMode === "F2_PASSWORD" || currentMode === "F2_MENU") {
-      if (activeRouteObj) { currentMode = "RUNNING"; startPidsTimers(); } else { currentMode = "STANDBY"; }
-      updateScreens(); return;
-  }
   if (currentMode === "SELECT_TYPE") { currentMode = "SELECT_BOUND"; updateScreens(); }
   else if (currentMode === "SELECT_BOUND") { currentMode = "SELECT_ROUTE"; listNavigated = false; updateScreens(); }
   else if (currentMode === "SELECT_ROUTE") {
@@ -1639,9 +1428,12 @@ function pressF4() {
 }
 
 function pressMultiTap(digit) {
-  if (!isPowerOn || isLoading || currentMode === "F2_LOADING" || currentMode.startsWith("BOOTING")) return;
-  if (currentMode === "F2_PASSWORD") { if (passwordInput.length < 10) passwordInput += digit; updateScreens(); return; }
-  if (currentMode === "F2_SET_SERIAL_PWD") { if (serialPasswordInput.length < 10) serialPasswordInput += digit; updateScreens(); return; }
+  if (!isPowerOn || isLoading || currentMode.startsWith("BOOTING")) return;
+  if (f2Mode !== "NONE") {
+      if (f2Mode === "F2_PASSWORD") { if (passwordInput.length < 10) passwordInput += digit; updateScreens(); }
+      if (f2Mode === "F2_SET_SERIAL_PWD") { if (serialPasswordInput.length < 10) serialPasswordInput += digit; updateScreens(); }
+      return;
+  }
   if (currentMode !== "SELECT_ROUTE") return;
 
   if (currentKeyDigit === digit) { currentKeyIndex = (currentKeyIndex + 1) % KEY_MAP[digit].length; }
@@ -1657,11 +1449,15 @@ function pressMultiTap(digit) {
 }
 
 function pressClear() {
-  if (!isPowerOn || isLoading || currentMode === "F2_LOADING" || currentMode.startsWith("BOOTING")) return;
-  if (currentMode === "RUNNING") return;
+  if (!isPowerOn || isLoading || currentMode.startsWith("BOOTING")) return;
 
-  if (currentMode === "F2_PASSWORD") { if (passwordInput.length > 0) { passwordInput = passwordInput.slice(0, -1); updateScreens(); } return; }
-  if (currentMode === "F2_SET_SERIAL_PWD") { if (serialPasswordInput.length > 0) { serialPasswordInput = serialPasswordInput.slice(0, -1); updateScreens(); } return; }
+  if (f2Mode !== "NONE") {
+      if (f2Mode === "F2_LOADING") return;
+      if (f2Mode === "F2_PASSWORD") { if (passwordInput.length > 0) { passwordInput = passwordInput.slice(0, -1); updateScreens(); } return; }
+      if (f2Mode === "F2_SET_SERIAL_PWD") { if (serialPasswordInput.length > 0) { serialPasswordInput = serialPasswordInput.slice(0, -1); updateScreens(); } return; }
+  }
+
+  if (currentMode === "RUNNING") return;
   if (currentMode === "SELECT_BOUND" || currentMode === "SELECT_TYPE") return;
 
   if (currentMode === "SELECT_ROUTE") {
@@ -1676,8 +1472,67 @@ function pressClear() {
 }
 
 function pressEnter() {
-  if (!isPowerOn || isLoading || currentMode === "F2_LOADING" || currentMode.startsWith("BOOTING")) return;
-  if (currentMode === "RUNNING" && isActivelyAnnouncing) return;
+  if (!isPowerOn || isLoading || currentMode.startsWith("BOOTING")) return;
+
+  if (f2Mode !== "NONE") {
+      if (f2Mode === "F2_LOADING") return;
+      if (f2Mode === "F2_PASSWORD") {
+          if (passwordInput === "9876") { f2Mode = "F2_MENU"; passwordInput = ""; updateScreens(); }
+          else { passwordInput = ""; updateScreens(); }
+      } else if (f2Mode === "F2_MENU") {
+          const sel = f2MenuItems[f2MenuIndex];
+          if (["COPY", "數據上傳", "下載本字庫", "更新驅動"].includes(sel)) {
+              triggerF2Loading("準備中...<br>未找到文件目錄，請稍後<br>再試！", "F2_MENU");
+          } else if (sel === "網絡配置") {
+              triggerF2Loading("檢索中...<br>未發現任何配置文件，請<br>稍後再試！", "F2_MENU");
+          } else if (sel === "本機屬性") {
+              f2Mode = "F2_MENU_ATTR"; f2SubMenuTitle = "本機屬性"; f2SubMenuList = ["亮度", "音量"]; f2SubMenuIndex = 0; updateScreens();
+          } else if (sel === "進階設定") {
+              f2Mode = "F2_MENU_ADV"; f2SubMenuTitle = "程序下載"; f2SubMenuList = ["主機", "線控器", "顯示屏"]; f2SubMenuIndex = 0; updateScreens();
+          } else if (sel === "精度設定") {
+              f2Mode = "F2_SETTING_ACCURACY"; updateScreens();
+          } else if (sel === "版本序列號") {
+              f2Mode = "F2_MENU_VER"; f2SubMenuTitle = "版本序列號"; f2SubMenuList = ["讀取版本序列號", "設定序列號"]; f2SubMenuIndex = 0; updateScreens();
+          } else if (sel === "站點採樣") {
+              f2Mode = "F2_SAMPLING"; updateScreens();
+          }
+      } else if (f2Mode === "F2_MENU_ATTR") {
+          const sel = f2SubMenuList[f2SubMenuIndex];
+          if (sel === "亮度") { f2Mode = "F2_SETTING_BRIGHT"; updateScreens(); }
+          else if (sel === "音量") { f2Mode = "F2_SETTING_VOL"; updateScreens(); }
+      } else if (f2Mode === "F2_MENU_ADV") {
+          const sel = f2SubMenuList[f2SubMenuIndex];
+          if (sel === "主機") {
+              triggerF2Loading("檢索中...<br>未發現更新程序，請稍後<br>再試！", "F2_MENU_ADV");
+          } else if (sel === "線控器") {
+              f2Mode = "F2_MENU_ADV_REMOTE"; f2SubMenuTitle = "下載數據-手抦"; f2SubMenuList = ["程序代碼", "字庫"]; f2SubMenuIndex = 0; updateScreens();
+          } else if (sel === "顯示屏") {
+              f2Mode = "F2_MENU_ADV_DISP"; f2SubMenuTitle = "下載數據-顯示屏"; f2SubMenuList = ["程序代碼（6字）", "程序代碼（8字）", "字庫"]; f2SubMenuIndex = 0; updateScreens();
+          }
+      } else if (f2Mode === "F2_MENU_ADV_REMOTE" || f2Mode === "F2_MENU_ADV_DISP") {
+          triggerF2Loading("檢索中...<br>未發現更新程序，請稍後<br>再試！", f2Mode);
+      } else if (f2Mode === "F2_MENU_VER") {
+          const sel = f2SubMenuList[f2SubMenuIndex];
+          if (sel === "讀取版本序列號") {
+              f2Mode = "F2_INFO_VER"; updateScreens();
+          } else if (sel === "設定序列號") {
+              f2Mode = "F2_SET_SERIAL_PWD"; serialPasswordInput = ""; updateScreens();
+          } else {
+              f2Mode = "F2_BLANK"; f2ReturnMode = "F2_MENU_VER"; updateScreens();
+          }
+      } else if (f2Mode === "F2_SET_SERIAL_PWD") {
+          if (serialPasswordInput === "99999999") {
+              f2Mode = "F2_BLANK"; f2ReturnMode = "F2_MENU_VER"; serialPasswordInput = ""; updateScreens();
+          } else {
+              f2Mode = "F2_SET_SERIAL_ERR"; updateScreens();
+          }
+      } else if (f2Mode === "F2_SET_SERIAL_ERR") {
+          f2Mode = "F2_SET_SERIAL_PWD"; serialPasswordInput = ""; updateScreens();
+      }
+      return;
+  }
+
+  if (activeRouteObj && isActivelyAnnouncing) return;
 
   if (currentMode === "SELECT_ROUTE") {
     commitMultiTap(); updateFilteredRoutes(); let val = searchInput;
@@ -1690,64 +1545,60 @@ function pressEnter() {
     activeRouteObj = buildRouteData(currentRouteKey, currentBoundKey, currentTypeKey);
     menuMode = "NONE"; currentMode = "RUNNING"; currentIndex = 0; ledCurrentIndex = 0; pidsCurrentIndex = 0; isStarted = false; attenCodeNum = 0; lastBeepedIndex = -1;
     saveState(); updateScreens(); startPidsTimers(); resumeDisplayLoopNoAudio();
-  } else if (currentMode === "F2_PASSWORD") {
-    if (passwordInput === "9876") { currentMode = "F2_MENU"; passwordInput = ""; updateScreens(); }
-    else { passwordInput = ""; updateScreens(); }
-  }
-  else if (currentMode === "F2_MENU") {
-      const sel = f2MenuItems[f2MenuIndex];
-      if (["COPY", "數據上傳", "下載本字庫", "更新驅動"].includes(sel)) {
-          triggerF2Loading("準備中...<br>未找到文件目錄，請稍後<br>再試！", "F2_MENU");
-      } else if (sel === "網絡配置") {
-          triggerF2Loading("檢索中...<br>未發現任何配置文件，請<br>稍後再試！", "F2_MENU");
-      } else if (sel === "本機屬性") {
-          currentMode = "F2_MENU_ATTR"; f2SubMenuTitle = "本機屬性"; f2SubMenuList = ["亮度", "音量"]; f2SubMenuIndex = 0; updateScreens();
-      } else if (sel === "進階設定") {
-          currentMode = "F2_MENU_ADV"; f2SubMenuTitle = "程序下載"; f2SubMenuList = ["主機", "線控器", "顯示屏"]; f2SubMenuIndex = 0; updateScreens();
-      } else if (sel === "精度設定") {
-          currentMode = "F2_SETTING_ACCURACY"; updateScreens();
-      } else if (sel === "版本序列號") {
-          currentMode = "F2_MENU_VER"; f2SubMenuTitle = "版本序列號"; f2SubMenuList = ["讀取版本序列號", "設定序列號"]; f2SubMenuIndex = 0; updateScreens();
-      } else if (sel === "站點採樣") {
-          currentMode = "F2_SAMPLING"; updateScreens();
-      }
-  } else if (currentMode === "F2_MENU_ATTR") {
-      const sel = f2SubMenuList[f2SubMenuIndex];
-      if (sel === "亮度") { currentMode = "F2_SETTING_BRIGHT"; updateScreens(); }
-      else if (sel === "音量") { currentMode = "F2_SETTING_VOL"; updateScreens(); }
-  } else if (currentMode === "F2_MENU_ADV") {
-      const sel = f2SubMenuList[f2SubMenuIndex];
-      if (sel === "主機") {
-          triggerF2Loading("檢索中...<br>未發現更新程序，請稍後<br>再試！", "F2_MENU_ADV");
-      } else if (sel === "線控器") {
-          currentMode = "F2_MENU_ADV_REMOTE"; f2SubMenuTitle = "下載數據-手抦"; f2SubMenuList = ["程序代碼", "字庫"]; f2SubMenuIndex = 0; updateScreens();
-      } else if (sel === "顯示屏") {
-          currentMode = "F2_MENU_ADV_DISP"; f2SubMenuTitle = "下載數據-顯示屏"; f2SubMenuList = ["程序代碼（6字）", "程序代碼（8字）", "字庫"]; f2SubMenuIndex = 0; updateScreens();
-      }
-  } else if (currentMode === "F2_MENU_ADV_REMOTE" || currentMode === "F2_MENU_ADV_DISP") {
-      triggerF2Loading("檢索中...<br>未發現更新程序，請稍後<br>再試！", currentMode);
-  } else if (currentMode === "F2_MENU_VER") {
-      const sel = f2SubMenuList[f2SubMenuIndex];
-      if (sel === "讀取版本序列號") {
-          currentMode = "F2_INFO_VER"; updateScreens();
-      } else if (sel === "設定序列號") {
-          currentMode = "F2_SET_SERIAL_PWD"; serialPasswordInput = ""; updateScreens();
-      } else {
-          currentMode = "F2_BLANK"; f2ReturnMode = "F2_MENU_VER"; updateScreens();
-      }
-  } else if (currentMode === "F2_SET_SERIAL_PWD") {
-      if (serialPasswordInput === "99999999") {
-          currentMode = "F2_BLANK"; f2ReturnMode = "F2_MENU_VER"; serialPasswordInput = ""; updateScreens();
-      } else {
-          currentMode = "F2_SET_SERIAL_ERR"; updateScreens();
-      }
-  } else if (currentMode === "F2_SET_SERIAL_ERR") {
-      currentMode = "F2_SET_SERIAL_PWD"; serialPasswordInput = ""; updateScreens();
   }
 }
 
+function handleDirection(dir) {
+    if (!isPowerOn || isLoading || currentMode.startsWith("BOOTING")) return;
+
+    let val = (dir === 'UP' || dir === 'LEFT') ? -1 : 1;
+
+    if (f2Mode !== "NONE") {
+        if (f2Mode === "F2_MENU") {
+            if (dir === 'UP' && f2MenuIndex !== 0 && f2MenuIndex !== 5) f2MenuIndex--;
+            else if (dir === 'DOWN' && f2MenuIndex !== 4 && f2MenuIndex !== 9) f2MenuIndex++;
+            else if (dir === 'LEFT' && f2MenuIndex >= 5) f2MenuIndex -= 5;
+            else if (dir === 'RIGHT' && f2MenuIndex < 5) f2MenuIndex += 5;
+            updateScreens();
+        } else if (f2Mode.startsWith("F2_MENU_")) {
+            f2SubMenuIndex += val;
+            if (f2SubMenuIndex < 0) f2SubMenuIndex = 0;
+            else if (f2SubMenuIndex >= f2SubMenuList.length) f2SubMenuIndex = f2SubMenuList.length - 1;
+            updateScreens();
+        } else if (f2Mode === "F2_SETTING_BRIGHT") {
+            settingBrightness += val; if (settingBrightness < 0) settingBrightness = 0; if (settingBrightness > 4) settingBrightness = 4; updateScreens();
+        } else if (f2Mode === "F2_SETTING_VOL") {
+            settingVolume += val; if (settingVolume < 0) settingVolume = 0; if (settingVolume > 8) settingVolume = 8; updateScreens();
+        } else if (f2Mode === "F2_SETTING_ACCURACY") {
+            settingAccuracy += val; if (settingAccuracy < 0) settingAccuracy = 0; if (settingAccuracy > 5) settingAccuracy = 5; updateScreens();
+        }
+        return;
+    }
+
+    if (activeRouteObj && isActivelyAnnouncing) return;
+
+    if (currentMode === "RUNNING" && dir === 'DOWN') {
+        return pressAnnounce(false);
+    }
+
+    if (currentMode === "SELECT_ROUTE") {
+        commitMultiTap();
+        if (filteredRouteKeysList.length > 0) {
+            if (!listNavigated) {
+                listNavigated = true;
+                if (val !== 1) selectedRouteIndex = (selectedRouteIndex + val + filteredRouteKeysList.length) % filteredRouteKeysList.length;
+            }
+            else { selectedRouteIndex = (selectedRouteIndex + val + filteredRouteKeysList.length) % filteredRouteKeysList.length; }
+            searchInput = filteredRouteKeysList[selectedRouteIndex]; lastSearchQuery = searchInput.toLowerCase();
+            isNoMatch = false; showRouteNotFound = false; updateScreens();
+        }
+    }
+    else if (currentMode === "SELECT_BOUND") { selectedBoundIndex = (selectedBoundIndex + val + boundsList.length) % boundsList.length; updateScreens(); }
+    else if (currentMode === "SELECT_TYPE") { selectedTypeIndex = (selectedTypeIndex + val + typesList.length) % typesList.length; updateScreens(); }
+}
+
 function pressDirectionMenu() {
-    if (!isPowerOn || isLoading || currentMode !== "RUNNING" || currentMode.startsWith("BOOTING")) return;
+    if (!isPowerOn || isLoading || currentMode.startsWith("BOOTING") || !activeRouteObj) return;
     if (isActivelyAnnouncing) return;
     stopPidsTimers(); menuMode = "DIR_MENU"; menuList = boundsList; menuIndex = menuList.indexOf(currentBoundKey);
     if (menuIndex === -1) menuIndex = 0; updateScreens();
@@ -1765,14 +1616,15 @@ function pressMenuEnter() {
   else if (menuMode === "TYPE_MENU") {
       remoteTempTypeKey = menuList[menuIndex]; currentBoundKey = remoteTempBoundKey; currentTypeKey = remoteTempTypeKey;
       activeRouteObj = buildRouteData(currentRouteKey, currentBoundKey, currentTypeKey);
-      menuMode = "NONE"; currentMode = "RUNNING"; currentIndex = 0; ledCurrentIndex = 0; pidsCurrentIndex = 0; isStarted = false; attenCodeNum = 0; lastBeepedIndex = -1;
+      menuMode = "NONE";
+      currentIndex = 0; ledCurrentIndex = 0; pidsCurrentIndex = 0; isStarted = false; attenCodeNum = 0; lastBeepedIndex = -1;
       stopAll(); saveState(); updateScreens(); startPidsTimers(); resumeDisplayLoopNoAudio();
   }
   updateScreens();
 }
 
 function pressSkip(dir) {
-  if (!isPowerOn || isLoading || currentMode !== "RUNNING" || currentMode.startsWith("BOOTING")) return;
+  if (!isPowerOn || isLoading || currentMode.startsWith("BOOTING") || !activeRouteObj) return;
   if (isActivelyAnnouncing) return;
 
   let wasSect = false;
@@ -1809,7 +1661,7 @@ function pressSkip(dir) {
 }
 
 function pressReplay() {
-  if (!isPowerOn || isLoading || currentMode !== "RUNNING" || menuMode !== "NONE") return;
+  if (!isPowerOn || isLoading || currentMode.startsWith("BOOTING") || !activeRouteObj || menuMode !== "NONE") return;
   if (isActivelyAnnouncing) return;
 
   stopAll(); isStarted = true; ledCurrentIndex = currentIndex; pidsCurrentIndex = currentIndex;
@@ -1817,7 +1669,7 @@ function pressReplay() {
 }
 
 function pressStopPlayback() {
-  if (!isPowerOn || isLoading || currentMode.startsWith("BOOTING") || currentMode !== "RUNNING") return;
+  if (!isPowerOn || isLoading || currentMode.startsWith("BOOTING") || !activeRouteObj) return;
   if (menuMode !== "NONE") { menuMode = "NONE"; startPidsTimers(); updateScreens(); return; }
 
   stopAll(); isStarted = false;
@@ -1830,7 +1682,7 @@ function pressStopPlayback() {
 }
 
 function pressAnnounce(isFromRemote = false) {
-  if (!isPowerOn || isLoading || currentMode !== "RUNNING" || menuMode !== "NONE") return;
+  if (!isPowerOn || isLoading || currentMode.startsWith("BOOTING") || !activeRouteObj || menuMode !== "NONE") return;
   if (isFromRemote && isActivelyAnnouncing) return;
 
   let targetIndex = currentIndex;
@@ -1841,7 +1693,10 @@ function pressAnnounce(isFromRemote = false) {
     if (!isFromRemote && currentIndex >= activeRouteObj.data.length - 2) {
         tempRouteKey = currentRouteKey; boundsList = getBoundsForRoute(currentRouteKey); selectedBoundIndex = boundsList.indexOf(currentBoundKey);
         if (selectedBoundIndex === -1) selectedBoundIndex = 0;
-        currentMode = "SELECT_BOUND"; stopPidsTimers(); stopAll(); updateScreens(); return;
+
+        if (f2Mode === "NONE") currentMode = "SELECT_BOUND";
+
+        stopPidsTimers(); stopAll(); updateScreens(); return;
     }
     if (currentIndex < activeRouteObj.data.length - 1) { targetIndex = currentIndex + 1; }
     else { stopAll(); return pressDirectionMenu(); }
