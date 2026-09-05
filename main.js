@@ -222,10 +222,10 @@ document.addEventListener('keydown', function(event) {
   const isRemoteStop = event.code === 'Numpad3';
   const isPanelDown = event.key === 'ArrowDown';
   const isPanelF1 = event.key === 'F1';
-  const isPanelF2 = event.key === 'F2'; // ★ 允許報站時撳 F2
+  const isPanelF2 = event.key === 'F2';
 
-  // ★ 報站期間防亂撳 (容許遙控停止、F1、F2、下掣)
-  if (activeRouteObj && isActivelyAnnouncing) {
+  // ★ 報站期間防亂撳：但如果入咗 F2 模式 (f2Mode !== "NONE")，就全面解鎖，畀 User 打密碼！
+  if (f2Mode === "NONE" && activeRouteObj && isActivelyAnnouncing) {
     if (!isRemoteStop && !isPanelDown && !isPanelF1 && !isPanelF2) {
       event.preventDefault();
       return;
@@ -247,6 +247,11 @@ document.addEventListener('keydown', function(event) {
   if (isSub) return adjustAttenCode(-1);
   if (isMul) return adjustAttenCode(10);
   if (isDiv) { event.preventDefault(); return adjustAttenCode(-10); }
+
+  // ★ F2 密碼模式下，Numpad 數字鍵乖乖哋當作入密碼，唔好當遙控掣！
+  if ((f2Mode === "F2_PASSWORD" || f2Mode === "F2_SET_SERIAL_PWD") && event.code.startsWith('Numpad') && /^[0-9]$/.test(event.key)) {
+    event.preventDefault(); return pressMultiTap(event.key);
+  }
 
   if (event.code === 'Numpad8') { event.preventDefault(); if (menuMode !== "NONE") pressMenuUp(); else pressSkip(1); return; }
   if (event.code === 'Numpad5') { event.preventDefault(); if (menuMode !== "NONE") pressMenuDown(); else pressSkip(-1); return; }
@@ -1369,7 +1374,7 @@ async function togglePower() {
 
         isRestoringMemory = false;
         updateScreens();
-        startPidsTimers();
+        stopPidsTimers(); startPidsTimers();
         resumeDisplayLoopNoAudio();
     } else {
         isRestoringMemory = false;
@@ -1430,7 +1435,7 @@ function pressF4() {
   if (currentMode === "SELECT_TYPE") { currentMode = "SELECT_BOUND"; updateScreens(); }
   else if (currentMode === "SELECT_BOUND") { currentMode = "SELECT_ROUTE"; listNavigated = false; updateScreens(); }
   else if (currentMode === "SELECT_ROUTE") {
-      if (activeRouteObj) { currentMode = "RUNNING"; startPidsTimers(); } else { currentMode = "STANDBY"; } updateScreens();
+      if (activeRouteObj) { currentMode = "RUNNING"; stopPidsTimers(); startPidsTimers(); } else { currentMode = "STANDBY"; } updateScreens();
   }
 }
 
@@ -1551,7 +1556,7 @@ function pressEnter() {
     tempTypeKey = typesList[selectedTypeIndex]; currentRouteKey = tempRouteKey; currentBoundKey = tempBoundKey; currentTypeKey = tempTypeKey;
     activeRouteObj = buildRouteData(currentRouteKey, currentBoundKey, currentTypeKey);
     menuMode = "NONE"; currentMode = "RUNNING"; currentIndex = 0; ledCurrentIndex = 0; pidsCurrentIndex = 0; isStarted = false; attenCodeNum = 0; lastBeepedIndex = -1;
-    saveState(); updateScreens(); startPidsTimers(); resumeDisplayLoopNoAudio();
+    saveState(); updateScreens(); stopPidsTimers(); startPidsTimers(); resumeDisplayLoopNoAudio();
   }
 }
 
@@ -1625,7 +1630,7 @@ function pressMenuEnter() {
       activeRouteObj = buildRouteData(currentRouteKey, currentBoundKey, currentTypeKey);
       menuMode = "NONE";
       currentIndex = 0; ledCurrentIndex = 0; pidsCurrentIndex = 0; isStarted = false; attenCodeNum = 0; lastBeepedIndex = -1;
-      stopAll(); saveState(); updateScreens(); startPidsTimers(); resumeDisplayLoopNoAudio();
+      stopAll(); saveState(); updateScreens(); stopPidsTimers(); startPidsTimers(); resumeDisplayLoopNoAudio();
   }
   updateScreens();
 }
@@ -1672,12 +1677,12 @@ function pressReplay() {
   if (isActivelyAnnouncing) return;
 
   stopAll(); isStarted = true; ledCurrentIndex = currentIndex; pidsCurrentIndex = currentIndex;
-  saveState(); updateScreens(); startPidsTimers(); startAnnouncementSequence(false);
+  saveState(); updateScreens(); stopPidsTimers(); startPidsTimers(); startAnnouncementSequence(false);
 }
 
 function pressStopPlayback() {
   if (!isPowerOn || isLoading || currentMode.startsWith("BOOTING") || !activeRouteObj) return;
-  if (menuMode !== "NONE") { menuMode = "NONE"; startPidsTimers(); updateScreens(); return; }
+  if (menuMode !== "NONE") { menuMode = "NONE"; stopPidsTimers(); startPidsTimers(); updateScreens(); return; }
 
   stopAll(); isStarted = false;
   if (pidsMode === '24') { renderPidsTopRow(); renderPidsMidArea(); renderPidsLowerArea("", false); }
@@ -1711,7 +1716,7 @@ function pressAnnounce(isFromRemote = false) {
 
   stopAllAudio(); isActivelyAnnouncing = true; currentSequenceToken++; let myToken = currentSequenceToken;
   isStarted = true; currentIndex = targetIndex; ledCurrentIndex = targetIndex; pidsCurrentIndex = targetIndex;
-  saveState(); updateScreens(); startPidsTimers();
+  saveState(); updateScreens(); stopPidsTimers(); startPidsTimers();
 
   const targetStop = activeRouteObj.data[targetIndex];
   (async () => {
