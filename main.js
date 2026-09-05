@@ -1026,7 +1026,7 @@ function updateScreens() {
             content.innerHTML = `<fieldset class="route-ui-fieldset" style="height: 148px; box-sizing: border-box; margin: 0;"><legend class="route-ui-legend">選擇服務類別</legend>${buildRadioList(typesList, selectedTypeIndex)}</fieldset>`;
           } else if (currentMode === "RUNNING" || menuMode === "DIR_MENU") {
             const stop = (activeRouteObj && activeRouteObj.data) ? activeRouteObj.data[currentIndex] : null; let cleanName = stop && stop.tc ? stop.tc.replace(/[>~|]/g, '') : ""; const destText = activeRouteObj ? activeRouteObj.dest : ""; const typeText = activeRouteObj ? activeRouteObj.type : "";
-            content.innerHTML = `<div class="screen-line">路線: ${currentRouteKey}</div><div class="screen-line">開往: ${destText}</div><div class="screen-line">屬性: ${typeText}</div><div class="screen-line">下一站:  ${formatStopNum(currentIndex)}</div><div class="screen-line stop-name">${cleanName}</div>`;
+            content.innerHTML = `<div class="screen-line">路線: ${currentRouteKey}</div><div class="screen-line">開往: ${destText}</div><div class="screen-line">屬性: ${typeText}</div><div class="screen-line">下一站:　　${formatStopNum(currentIndex)}</div><div class="screen-line stop-name">${cleanName}</div>`;
           }
       }
 
