@@ -1460,6 +1460,7 @@ async function togglePower() {
 
 function pressF1() {
   if (!isPowerOn || isLoading || currentMode.startsWith("BOOTING")) return;
+  if (f2Mode === "F2_SAMPLING") return;
   stopPidsTimers(); f2Mode = "NONE"; currentMode = "SELECT_ROUTE"; searchInput = ""; currentKeyDigit = null; lastSearchQuery = "";
   selectedRouteIndex = 0; attenCodeNum = 0; lastBeepedIndex = -1; isNoMatch = false; showRouteNotFound = false; listNavigated = false;
   updateFilteredRoutes(); updateScreens();
@@ -1467,6 +1468,7 @@ function pressF1() {
 
 function pressF2() {
     if (!isPowerOn || isLoading || currentMode.startsWith("BOOTING")) return;
+    if (f2Mode === "F2_SAMPLING") return;
     f2Mode = "F2_PASSWORD"; passwordInput = ""; f2MenuIndex = 0; updateScreens();
 }
 
