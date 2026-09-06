@@ -96,6 +96,7 @@ const f2MenuItems = ["COPY", "本機屬性", "網絡配置", "進階設定", "�
 let f2SubMenuIndex = 0;
 let f2SubMenuList = [];
 let f2SubMenuTitle = "";
+let samplingIndex = 0;
 let settingBrightness = 3;
 let settingVolume = 3;
 let settingAccuracy = 5;
@@ -365,9 +366,10 @@ async function fetchExcelFromDrive() {
 
   excelFetchPromise = (async () => {
     const targetUrl = `https://docs.google.com/spreadsheets/d/${GOOGLE_DRIVE_XLSX_ID}/export?format=xlsx`;
+    // ★ 核心修復 1：將 targetUrl 放第一位，優先強制讀取 Google Drive 最新數據，避開舊 Cache！
     const proxyList = [
-      './stopdata.xlsx',
       targetUrl,
+      './stopdata.xlsx',
       `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`,
       `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`
     ];
@@ -387,9 +389,11 @@ async function fetchExcelFromDrive() {
             XLSX.utils.sheet_to_json(workbook.Sheets["Stops"]).forEach(row => {
               let sId = row.stop_id || row.stopid || row.STOP_ID || row.STOPID || row['車站編號'];
               if (sId) {
-                const rKeys = Object.keys(row);
-                let coordX = row['H'] || row.X || row.x || (rKeys.length >= 8 ? row[rKeys[7]] : "1148.9697");
-                let coordY = row['I'] || row.Y || row.y || (rKeys.length >= 9 ? row[rKeys[8]] : "2219.85682");
+                // ★ 增強容錯：支援大小階 x, y, s1, s2，甚至 fallback 到 H I J K 行
+                let coordX = row['x'] !== undefined ? row['x'] : (row['X'] !== undefined ? row['X'] : (row['H'] !== undefined ? row['H'] : ""));
+                let coordY = row['y'] !== undefined ? row['y'] : (row['Y'] !== undefined ? row['Y'] : (row['I'] !== undefined ? row['I'] : ""));
+                let coordS1 = row['s1'] !== undefined ? row['s1'] : (row['S1'] !== undefined ? row['S1'] : (row['J'] !== undefined ? row['J'] : ""));
+                let coordS2 = row['s2'] !== undefined ? row['s2'] : (row['S2'] !== undefined ? row['S2'] : (row['K'] !== undefined ? row['K'] : ""));
 
                 STATIONS_DB[String(sId).trim()] = {
                   tc: String(row.name_tc || row.NAME_TC || row['中文站名'] || ""),
@@ -398,8 +402,7 @@ async function fetchExcelFromDrive() {
                   audioTc: String(row.audio_tc || row.AUDIO_TC || row['廣播中文'] || ""),
                   audioEn: String(row.audio_en || row.AUDIO_EN || row['廣播英文'] || ""),
                   audioPth: String(row.audio_pth || row.AUDIO_PTH || row['廣播普通話'] || ""),
-                  x: String(coordX),
-                  y: String(coordY)
+                  x: String(coordX), y: String(coordY), s1: String(coordS1), s2: String(coordS2)
                 };
               }
             });
@@ -444,7 +447,8 @@ function getStopsAudioData(stopId) {
   const dbObj = STATIONS_DB[String(stopId).trim()] || {};
   return {
       tc: dbObj.tc || "", en: dbObj.en || "", pth: dbObj.pth || "",
-      audioTc: dbObj.audioTc || "", audioEn: dbObj.audioEn || "", audioPth: dbObj.audioPth || ""
+      audioTc: dbObj.audioTc || "", audioEn: dbObj.audioEn || "", audioPth: dbObj.audioPth || "",
+      x: dbObj.x || "", y: dbObj.y || "", s1: dbObj.s1 || "", s2: dbObj.s2 || ""
   };
 }
 
@@ -481,10 +485,9 @@ function buildRouteData(routeKey, boundKey, typeKey) {
       audioTc: row.audio_tc || row.AUDIO_TC || row['廣播中文'] || dbObj.audioTc || "",
       audioEn: row.audio_en || row.AUDIO_EN || row['廣播英文'] || dbObj.audioEn || "",
       audioPth: row.audio_pth || row.AUDIO_PTH || row['廣播普通話'] || dbObj.audioPth || "",
-
-      // ★ 核心修改：幫 PIDS 中文刪除 |>~，英文就將 | 轉做空格
       pidsTc: (rawTc !== undefined ? String(rawTc).replace(/[>~|]/g, '') : "").trim(),
-      pidsEn: (rawEn !== undefined ? String(rawEn).replace(/[>~]/g, '').replace(/\|/g, ' ') : "").replace(/\s+/g, ' ').trim()
+      pidsEn: (rawEn !== undefined ? String(rawEn).replace(/[>~]/g, '').replace(/\|/g, ' ') : "").replace(/\s+/g, ' ').trim(),
+      x: dbObj.x || "", y: dbObj.y || "", s1: dbObj.s1 || "", s2: dbObj.s2 || ""
     };
 
     if (i === 0) {
@@ -494,9 +497,14 @@ function buildRouteData(routeKey, boundKey, typeKey) {
       if (baseStopId) {
           const startDbObj = getStopsAudioData(baseStopId);
           if (startDbObj.tc) {
-              // ★ 第 0 站首發站都要過濾埋
               itemData.pidsTc = startDbObj.tc.replace(/[>~|]/g, '');
               itemData.pidsEn = startDbObj.en.replace(/[>~]/g, '').replace(/\|/g, ' ').replace(/\s+/g, ' ').trim();
+
+              // ★ 核心修復 2：第 0 站都要將座標過繼埋落去！
+              itemData.x = startDbObj.x || itemData.x;
+              itemData.y = startDbObj.y || itemData.y;
+              itemData.s1 = startDbObj.s1 || itemData.s1;
+              itemData.s2 = startDbObj.s2 || itemData.s2;
           }
       }
     }
@@ -997,9 +1005,18 @@ function updateScreens() {
           } else if (f2Mode === "F2_INFO_VER") {
               content.innerHTML = `<fieldset class="route-ui-fieldset" style="margin: 0; height: 148px; box-sizing: border-box; padding: 2px 6px;"><legend class="route-ui-legend" style="font-size: 18px; font-weight: bold; margin-left: 2px; padding: 0 4px; color: #111;">本機屬性</legend><div style="font-size: 11px; line-height: 1.7; letter-spacing: -1px; margin-top: 2px; white-space: nowrap;"><div>機器序列號: 00000000000000000000000</div><div style="display: grid; grid-template-columns: 100px 1fr; margin-top: 0px;"><div>數據庫起始版本:</div><div>20260512_v1</div><div>數據庫版本:</div><div>20260512_v1</div><div>Schema:</div><div>20140220</div><div>本機IP地址:</div><div>192.168.1.2</div><div>FTP服務器地址:</div><div>ftp://192.168.1.1/</div></div></div></fieldset>`;
           } else if (f2Mode === "F2_SAMPLING") {
-              const stop = activeRouteObj && activeRouteObj.data ? activeRouteObj.data[currentIndex] : null;
-              let routeText = currentRouteKey || "---"; let destText = activeRouteObj ? activeRouteObj.dest : "---"; let stopName = stop && stop.tc ? stop.tc.replace(/[>~|]/g, '') : "歡迎乘坐九龍巴士"; let stopId = stop && stop.stopId ? stop.stopId : "---"; let seq = stop ? stop.seq : "0"; let cx = stop && stop.x ? stop.x : "0000.0000"; let cy = stop && stop.y ? stop.y : "0000.00000";
-              content.innerHTML = `<fieldset class="route-ui-fieldset" style="margin: 0; height: 148px; box-sizing: border-box; padding: 2px 4px; border: 1px solid #111;"><legend class="route-ui-legend" style="font-size: 16px; margin-left: 8px; padding: 0 4px; color: #111;">座標採樣</legend><div style="font-size: 12px; line-height: 1.2; letter-spacing: -0.5px;"><div style="display: grid; grid-template-columns: 65px 1fr;"><div>路線:${routeText}</div><div>開往:${destText}</div><div>${seq}</div><div> ${stopName}</div><div>代碼:</div><div> ${stopId}</div></div><div style="display: flex; justify-content: space-between; margin-top: 6px; padding: 0 4px;"><fieldset style="width: 44%; border: 1px solid #111; padding: 2px 4px; height: 70px; margin:0; box-sizing: border-box;"><legend style="font-size: 12px; margin-left: 4px; padding: 0 2px;">站點座標</legend><div style="font-size: 12px; line-height: 1.1; margin-top: -2px;"><div>${cx}</div><div>${cy}</div><div>11.0</div><div>301</div></div></fieldset><fieldset style="width: 40%; border: 1px solid #111; padding: 2px 4px; height: 70px; margin:0; box-sizing: border-box;"><legend style="font-size: 12px; margin-left: 4px; padding: 0 2px;">即時座標</legend><div style="font-size: 12px; line-height: 1.1;"></div></fieldset></div></div></fieldset>`;
+              const stop = activeRouteObj && activeRouteObj.data ? activeRouteObj.data[samplingIndex] : null;
+              let routeText = currentRouteKey || "---";
+              let destText = activeRouteObj ? activeRouteObj.dest : "---";
+              let stopName = stop && stop.tc ? stop.tc.replace(/[>~|]/g, '') : "";
+              let stopId = stop && stop.stopId ? stop.stopId : "---";
+              let seq = stop ? stop.seq : "0";
+              let cx = stop && stop.x ? stop.x : "";
+              let cy = stop && stop.y ? stop.y : "";
+              let cs1 = stop && stop.s1 ? stop.s1 : "";
+              let cs2 = stop && stop.s2 ? stop.s2 : "";
+
+              content.innerHTML = `<fieldset class="route-ui-fieldset" style="margin: 0; height: 148px; box-sizing: border-box; padding: 2px 4px; border: 1px solid #111;"><legend class="route-ui-legend" style="font-size: 16px; margin-left: 8px; padding: 0 4px; color: #111;">座標採樣</legend><div style="font-size: 12px; line-height: 1.2; letter-spacing: -0.5px;"><div style="display: grid; grid-template-columns: 55px 1fr;"><div>路線:${routeText}</div><div>開往:${destText}</div><div>${seq}</div><div style="padding-left: 15px;">${stopName}</div><div>代碼:</div><div style="padding-left: 15px;">${stopId}</div></div><div style="display: flex; justify-content: space-between; margin-top: 6px; padding: 0 4px;"><fieldset style="width: 44%; border: 1px solid #111; padding: 2px 4px; height: 70px; margin:0; box-sizing: border-box;"><legend style="font-size: 12px; margin-left: 4px; padding: 0 2px;">站點座標</legend><div style="font-size: 10px; line-height: 1.1; margin-top: -2px;"><div style="height: 13px;">${cx}</div><div style="height: 13px;">${cy}</div><div style="height: 13px;">${cs1}</div><div style="height: 13px;">${cs2}</div></div></fieldset><fieldset style="width: 40%; border: 1px solid #111; padding: 2px 4px; height: 70px; margin:0; box-sizing: border-box;"><legend style="font-size: 12px; margin-left: 4px; padding: 0 2px;">即時座標</legend><div style="font-size: 12px; line-height: 1.1;"></div></fieldset></div></div></fieldset>`;
           } else if (f2Mode === "F2_SET_SERIAL_PWD" || f2Mode === "F2_SET_SERIAL_ERR") {
               const displayPwd = "●".repeat(serialPasswordInput.length); let dialogHtml = "";
               if (f2Mode === "F2_SET_SERIAL_ERR") { dialogHtml = `<div style="position: absolute; top: 12%; left: 50%; transform: translateX(-50%); width: 170px; background: #d4d0c8; border-top: 1px solid #fff; border-left: 1px solid #fff; border-right: 1px solid #404040; border-bottom: 1px solid #404040; box-shadow: 1px 1px 0px #000; z-index: 10;"><div style="background: #547BCE; height: 18px; display: flex; align-items: center; justify-content: space-between; padding: 0 2px; border-bottom: 1px solid #d4d0c8;"><div style="display: flex; align-items: center; gap: 4px;"><div style="width: 12px; height: 12px; background: #ffcc00; color: #111; font-weight: bold; font-size: 10px; display: flex; align-items: center; justify-content: center; border-radius: 2px;">K</div><span style="color: #fff; font-family: 'Tahoma', sans-serif; font-size: 11px; font-weight: bold; letter-spacing: 0px;">Password Erro</span></div><div style="width: 14px; height: 14px; background: #547BCE; border-top: 1px solid #8caee6; border-left: 1px solid #8caee6; border-right: 1px solid #2a4c95; border-bottom: 1px solid #2a4c95; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: bold; font-size: 10px; line-height: 1;">x</div></div><div style="padding: 12px 8px 8px 8px; display: flex; flex-direction: column; align-items: center; background: #fff;"><div style="display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%;"><div style="width: 22px; height: 22px; background: #fff; border-radius: 50%; border: 1.5px solid #666; display: flex; align-items: center; justify-content: center; font-family: 'Times New Roman', serif; font-size: 14px; font-style: italic; font-weight: bold; color: #547BCE; box-shadow: 1px 1px 0px rgba(0,0,0,0.2);">i</div><span style="font-family: '微軟正黑體', sans-serif; font-size: 13px; color: #555;">Please try again</span></div><div style="margin-top: 15px; width: 60px; height: 22px; display: flex; align-items: center; justify-content: center; border-top: 1px solid #fff; border-left: 1px solid #fff; border-right: 1px solid #404040; border-bottom: 1px solid #404040; background: #d4d0c8; color: #000; font-size: 12px; font-family: 'Tahoma', sans-serif; box-shadow: inset 1px 1px 0px #fff, inset -1px -1px 0px #808080; outline: 1px dotted #000; outline-offset: -3px;">OK</div></div></div>`; }
@@ -1506,7 +1523,7 @@ function pressEnter() {
           } else if (sel === "版本序列號") {
               f2Mode = "F2_MENU_VER"; f2SubMenuTitle = "版本序列號"; f2SubMenuList = ["讀取版本序列號", "設定序列號"]; f2SubMenuIndex = 0; updateScreens();
           } else if (sel === "站點採樣") {
-              f2Mode = "F2_SAMPLING"; updateScreens();
+              f2Mode = "F2_SAMPLING"; samplingIndex = 0; updateScreens();
           }
       } else if (f2Mode === "F2_MENU_ATTR") {
           const sel = f2SubMenuList[f2SubMenuIndex];
@@ -1583,6 +1600,12 @@ function handleDirection(dir) {
             settingVolume += val; if (settingVolume < 0) settingVolume = 0; if (settingVolume > 8) settingVolume = 8; updateScreens();
         } else if (f2Mode === "F2_SETTING_ACCURACY") {
             settingAccuracy += val; if (settingAccuracy < 0) settingAccuracy = 0; if (settingAccuracy > 5) settingAccuracy = 5; updateScreens();
+        } else if (f2Mode === "F2_SAMPLING") {
+            if (activeRouteObj && activeRouteObj.data) {
+                if (val === 1 && samplingIndex < activeRouteObj.data.length - 1) samplingIndex++;
+                else if (val === -1 && samplingIndex > 0) samplingIndex--;
+                updateScreens();
+            }
         }
         return;
     }
