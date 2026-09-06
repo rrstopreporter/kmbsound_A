@@ -1016,7 +1016,60 @@ function updateScreens() {
               let cs1 = stop && stop.s1 ? stop.s1 : "";
               let cs2 = stop && stop.s2 ? stop.s2 : "";
 
-              content.innerHTML = `<fieldset class="route-ui-fieldset" style="margin: 0; height: 148px; box-sizing: border-box; padding: 2px 4px; border: 1px solid #111;"><legend class="route-ui-legend" style="font-size: 16px; margin-left: 8px; padding: 0 4px; color: #111;">座標採樣</legend><div style="font-size: 12px; line-height: 1.2; letter-spacing: -0.5px;"><div style="display: grid; grid-template-columns: 55px 1fr;"><div>路線:${routeText}</div><div>開往:${destText}</div><div>${seq}</div><div style="padding-left: 15px;">${stopName}</div><div>代碼:</div><div style="padding-left: 15px;">${stopId}</div></div><div style="display: flex; justify-content: space-between; margin-top: 6px; padding: 0 4px;"><fieldset style="width: 44%; border: 1px solid #111; padding: 2px 4px; height: 70px; margin:0; box-sizing: border-box;"><legend style="font-size: 12px; margin-left: 4px; padding: 0 2px;">站點座標</legend><div style="font-size: 10px; line-height: 1.1; margin-top: -2px;"><div style="height: 13px;">${cx}</div><div style="height: 13px;">${cy}</div><div style="height: 13px;">${cs1}</div><div style="height: 13px;">${cs2}</div></div></fieldset><fieldset style="width: 40%; border: 1px solid #111; padding: 2px 4px; height: 70px; margin:0; box-sizing: border-box;"><legend style="font-size: 12px; margin-left: 4px; padding: 0 2px;">即時座標</legend><div style="font-size: 12px; line-height: 1.1;"></div></fieldset></div></div></fieldset>`;
+              content.innerHTML = `<fieldset class="route-ui-fieldset" style="margin: 0; height: 152px; box-sizing: border-box; padding: 2px 2px; border: 1px solid #111; border-radius: 3px;">
+              <legend class="route-ui-legend" style="font-size: 16px; margin-left: 4px; padding: 0 4px; color: #111;">座標採樣</legend><div style="font-size: 11px; line-height: 1.2; letter-spacing: -0.5px;">
+
+              <!-- 1. 第一行：路線 與 開往 -->
+              <div style="display: flex; align-items: center; margin-bottom: 2px; width: 100%;">
+                  <span style="width: 30px; flex-shrink: 0; margin-left: 4px;">路線:</span>
+                  <!-- ★ 路線號碼：喺「路線」同「開往」中間嘅空位完美置中 -->
+                  <span style="flex: 1 1 auto; text-align: center; white-space: nowrap; overflow: hidden;">${routeText}</span>
+
+                  <!-- 右邊專屬區塊 (鎖定約 105px 闊度) -->
+                  <div style="display: flex; min-width: 105px; flex-shrink: 0;">
+                      <span style="flex-shrink: 0; ">開往:&nbsp;</span>
+                      <!-- ★ 目的地：喺「開往:」之後嘅剩餘空間完美置中！ -->
+                      <span style="flex: 1 1 auto; text-align: center; white-space: nowrap; overflow: hidden;">${destText}</span>
+                  </div>
+              </div>
+
+              <!-- 2. 第二行：序號 與 現站 -->
+              <div style="display: flex; align-items: center; margin-bottom: 2px; width: 100%;">
+                  <span style="width: 30px; flex-shrink: 0; margin-left: 4px;">${seq}</span>
+                  <!-- 彈簧空間 -->
+                  <div style="flex: 1 1 auto; min-width: 0;"></div>
+                  <!-- ★ 站名：鎖定與「開往:」同一個起跑線 (105px)，向左延伸 -->
+                  <div style="min-width: 105px; max-width: calc(100% - 38px); white-space: nowrap; text-align: left;">${stopName}</div>
+              </div>
+
+              <!-- 3. 第三行：代碼 -->
+              <div style="display: flex; align-items: center; width: 100%;">
+                  <span style="width: 30px; flex-shrink: 0; margin-left: 4px;">代碼:</span>
+                  <!-- 彈簧空間 -->
+                  <div style="flex: 1 1 auto; min-width: 0;"></div>
+                  <!-- ★ 代碼：鎖定與「開往:」同一個起跑線 (105px) -->
+                  <div style="min-width: 105px; max-width: calc(100% - 38px); white-space: nowrap; text-align: left;">${stopId}</div>
+              </div>
+
+              <!-- 4. 第四行：兩個座標框 (維持不變) -->
+              <div style="display: flex; justify-content: space-between; margin-top: 4px; padding: 0 4px;">
+                  <fieldset style="width: max-content; min-width: 70px; border: 1px solid #111; border-radius: 3px; padding: 2px; height: 76px; margin:0; box-sizing: border-box;">
+                      <legend style="font-size: 11px; margin-left: 4px; padding: 0 2px; text-align: left;">站點座標</legend>
+                      <div style="font-size: 11px; line-height: 0.8; margin-left: 5px; margin-right: 5px; margin-top: 5px; display: flex; flex-direction: column; align-items: flex-start;">
+                          <div style="height: 13px; white-space: nowrap;">${cx}</div>
+                          <div style="height: 13px; white-space: nowrap;">${cy}</div>
+                          <div style="height: 13px; white-space: nowrap;">${cs1}</div>
+                          <div style="height: 13px; white-space: nowrap;">${cs2}</div>
+                      </div>
+                  </fieldset>
+                  <fieldset style="width: 65px; border: 1px solid #111; border-radius: 3px; padding: 2px 4px; height: 76px; margin:0; box-sizing: border-box;">
+                      <legend style="font-size: 11px; margin-left: 3px; padding: 0 2px;">即時座標</legend>
+                      <div style="font-size: 11px; line-height: 0.8;"></div>
+                  </fieldset>
+              </div>
+
+              </div></fieldset>`;
+
           } else if (f2Mode === "F2_SET_SERIAL_PWD" || f2Mode === "F2_SET_SERIAL_ERR") {
               const displayPwd = "●".repeat(serialPasswordInput.length); let dialogHtml = "";
               if (f2Mode === "F2_SET_SERIAL_ERR") { dialogHtml = `<div style="position: absolute; top: 12%; left: 50%; transform: translateX(-50%); width: 170px; background: #d4d0c8; border-top: 1px solid #fff; border-left: 1px solid #fff; border-right: 1px solid #404040; border-bottom: 1px solid #404040; box-shadow: 1px 1px 0px #000; z-index: 10;"><div style="background: #547BCE; height: 18px; display: flex; align-items: center; justify-content: space-between; padding: 0 2px; border-bottom: 1px solid #d4d0c8;"><div style="display: flex; align-items: center; gap: 4px;"><div style="width: 12px; height: 12px; background: #ffcc00; color: #111; font-weight: bold; font-size: 10px; display: flex; align-items: center; justify-content: center; border-radius: 2px;">K</div><span style="color: #fff; font-family: 'Tahoma', sans-serif; font-size: 11px; font-weight: bold; letter-spacing: 0px;">Password Erro</span></div><div style="width: 14px; height: 14px; background: #547BCE; border-top: 1px solid #8caee6; border-left: 1px solid #8caee6; border-right: 1px solid #2a4c95; border-bottom: 1px solid #2a4c95; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: bold; font-size: 10px; line-height: 1;">x</div></div><div style="padding: 12px 8px 8px 8px; display: flex; flex-direction: column; align-items: center; background: #fff;"><div style="display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%;"><div style="width: 22px; height: 22px; background: #fff; border-radius: 50%; border: 1.5px solid #666; display: flex; align-items: center; justify-content: center; font-family: 'Times New Roman', serif; font-size: 14px; font-style: italic; font-weight: bold; color: #547BCE; box-shadow: 1px 1px 0px rgba(0,0,0,0.2);">i</div><span style="font-family: '微軟正黑體', sans-serif; font-size: 13px; color: #555;">Please try again</span></div><div style="margin-top: 15px; width: 60px; height: 22px; display: flex; align-items: center; justify-content: center; border-top: 1px solid #fff; border-left: 1px solid #fff; border-right: 1px solid #404040; border-bottom: 1px solid #404040; background: #d4d0c8; color: #000; font-size: 12px; font-family: 'Tahoma', sans-serif; box-shadow: inset 1px 1px 0px #fff, inset -1px -1px 0px #808080; outline: 1px dotted #000; outline-offset: -3px;">OK</div></div></div>`; }
@@ -1601,10 +1654,21 @@ function handleDirection(dir) {
         } else if (f2Mode === "F2_SETTING_ACCURACY") {
             settingAccuracy += val; if (settingAccuracy < 0) settingAccuracy = 0; if (settingAccuracy > 5) settingAccuracy = 5; updateScreens();
         } else if (f2Mode === "F2_SAMPLING") {
-            if (activeRouteObj && activeRouteObj.data) {
-                if (val === 1 && samplingIndex < activeRouteObj.data.length - 1) samplingIndex++;
-                else if (val === -1 && samplingIndex > 0) samplingIndex--;
-                updateScreens();
+            if (activeRouteObj && activeRouteObj.data && activeRouteObj.data.length > 0) {
+                if (val === 1) {
+                    samplingIndex++;
+                    // 向下跳站：如果去到最尾，或者遇到「多謝乘搭」，即刻變返 000
+                    if (samplingIndex >= activeRouteObj.data.length || (activeRouteObj.data[samplingIndex].tc && activeRouteObj.data[samplingIndex].tc.includes("多謝"))) {
+                        samplingIndex = 0;
+                    }
+                    updateScreens();
+                } else if (val === -1) {
+                    // 向上跳站：只限大過 0 嗰陣先有反應，000 撳上掣會直接無反應
+                    if (samplingIndex > 0) {
+                        samplingIndex--;
+                        updateScreens();
+                    }
+                }
             }
         }
         return;
